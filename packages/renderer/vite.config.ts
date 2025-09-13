@@ -10,8 +10,8 @@ export default defineConfig({
   plugins: [
     vitePlugin({
       autoCodeSplitting: true,
-      routesDirectory: './src/routes',
-      generatedRouteTree: './src/routeTree.gen.ts'
+      routesDirectory: resolve(__dirname, './src/routes'),
+      generatedRouteTree: resolve(__dirname, './src/routeTree.gen.ts')
     }),
     viteReact(),
     tailwindcss(),
