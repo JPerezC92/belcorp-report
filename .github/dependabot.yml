@@ -6,7 +6,7 @@ updates:
     schedule:
       interval: "weekly"
 
-  # Maintain dependencies for npm
+  # Maintain dependencies for pnpm
   - package-ecosystem: "npm"
     versioning-strategy: increase
     directory: "/"

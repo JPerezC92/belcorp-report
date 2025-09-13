@@ -1,7 +1,7 @@
 import pkg from './package.json' with {type: 'json'};
-import mapWorkspaces from '@npmcli/map-workspaces';
 import {join} from 'node:path';
 import {pathToFileURL} from 'node:url';
+import {readdir} from 'node:fs/promises';
 
 export default /** @type import('electron-builder').Configuration */
 ({
@@ -12,6 +12,16 @@ export default /** @type import('electron-builder').Configuration */
   generateUpdatesFilesForAllChannels: true,
   linux: {
     target: ['deb'],
+  },
+  win: {
+    target: [
+      {
+        target: 'nsis',
+        arch: ['x64']
+      }
+    ],
+    forceCodeSigning: false,
+    signAndEditExecutable: false,
   },
   /**
    * It is recommended to avoid using non-standard characters such as spaces in artifact names,
@@ -89,10 +99,7 @@ async function getListOfFilesFromEachWorkspace() {
   /**
    * @type {Map<string, string>}
    */
-  const workspaces = await mapWorkspaces({
-    cwd: process.cwd(),
-    pkg,
-  });
+  const workspaces = await getWorkspaces();
 
   const allFilesToInclude = [];
 
@@ -107,4 +114,39 @@ async function getListOfFilesFromEachWorkspace() {
   }
 
   return allFilesToInclude;
+}
+
+/**
+ * Get workspaces from pnpm-workspace.yaml or fallback to packages/* pattern
+ * @returns {Promise<Map<string, string>>}
+ */
+async function getWorkspaces() {
+  const workspaces = new Map();
+
+  try {
+    // Read packages from packages/ directory
+    const packagesDir = join(process.cwd(), 'packages');
+    const packageDirs = await readdir(packagesDir, { withFileTypes: true });
+
+    for (const dir of packageDirs) {
+      if (dir.isDirectory()) {
+        const packagePath = join(packagesDir, dir.name);
+        const pkgJsonPath = join(packagePath, 'package.json');
+
+        try {
+          const {default: workspacePkg} = await import(pathToFileURL(pkgJsonPath), {with: {type: 'json'}});
+          if (workspacePkg.name) {
+            workspaces.set(workspacePkg.name, packagePath);
+          }
+        } catch (error) {
+          // Skip directories without valid package.json
+          console.warn(`Skipping ${dir.name}: no valid package.json found`);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Error reading workspaces:', error.message);
+  }
+
+  return workspaces;
 }

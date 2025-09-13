@@ -27,8 +27,6 @@ permissions:
 env:
   NODE_NO_WARNINGS: 1
   PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-  npm_config_audit: false
-  npm_config_fund: false
 
 jobs:
   typeckeck:
@@ -39,7 +37,7 @@ jobs:
         name: Setup boilerplate
         with:
           renderer-template: ${{inputs.renderer-template}}
-      - run: npm run typecheck --if-present
+      - run: pnpm run typecheck --if-present
 
   compile:
     strategy:
@@ -57,15 +55,15 @@ jobs:
         with:
           renderer-template: ${{inputs.renderer-template}}
 
-      - run: npm version "${{inputs.app-version}}" --no-git-tag-version
-      - run: npm run compile -- -p never
+      - run: pnpm version "${{inputs.app-version}}" --no-git-tag-version
+      - run: pnpm run compile -- -p never
         env:
           VITE_DISTRIBUTION_CHANNEL: ${{inputs.distribution-channel}}
 
-      - run: npm run test --if-present
+      - run: pnpm run test --if-present
         if: matrix.os != 'ubuntu-latest'
 
-      - run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- npm run test --if-present
+      - run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" -- pnpm run test --if-present
         if: matrix.os == 'ubuntu-latest'
 
       - uses: actions/attest-build-provenance@v3
