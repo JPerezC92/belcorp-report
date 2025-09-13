@@ -21,16 +21,26 @@ if (process.env.NODE_ENV === 'development' || process.env.PLAYWRIGHT_TEST === 't
  * the main module remains simplistic and efficient
  * as it receives initialization instructions rather than direct module imports.
  */
+
+const rendererPath = fileURLToPath(import.meta.resolve('@app/renderer'));
+const preloadPath = fileURLToPath(import.meta.resolve('@app/preload/exposed.mjs'));
+
+console.log('=== Electron App Initialization ===');
+console.log('Mode:', process.env.MODE);
+console.log('Development server URL:', process.env.VITE_DEV_SERVER_URL);
+console.log('Renderer path:', rendererPath);
+console.log('Preload path:', preloadPath);
+
 initApp(
   {
     renderer: (process.env.MODE === 'development' && !!process.env.VITE_DEV_SERVER_URL) ?
       new URL(process.env.VITE_DEV_SERVER_URL)
       : {
-        path: fileURLToPath(import.meta.resolve('@app/renderer')),
+        path: rendererPath,
       },
 
     preload: {
-      path: fileURLToPath(import.meta.resolve('@app/preload/exposed.mjs')),
+      path: preloadPath,
     },
   },
 );

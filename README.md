@@ -25,9 +25,13 @@ and best practices.
 Follow these steps to get started with the template:
 
 1. Click the **[Use this template](https://github.com/cawa-93/vite-electron-builder/generate)** button (you must be logged in) or just clone this repo.
-2. Go to project folder and run `npm run init`.
-3. Start application in development mode by `npm start`.
-4. Compile executable by `npm run compile`.
+2. Make sure you have [pnpm](https://pnpm.io/) installed globally:
+   - `npm install -g pnpm` (if you have npm)
+   - `corepack enable` (if you have Node.js 16.13+)
+   - Or download from [pnpm.io/installation](https://pnpm.io/installation)
+3. Go to project folder and run `pnpm run init`.
+4. Start application in development mode by `pnpm start`.
+5. Compile executable by `pnpm run compile`.
  
 That's all you need. 😉
 
@@ -42,6 +46,94 @@ That's all you need. 😉
 
 ### Lightweight
 When designing this template, I tried to keep it minimal, using the platform's native features to the maximum and minimizing the number of third-party dependencies.
+
+### Electron + TanStack Router Configuration
+
+This project includes a fully configured **TanStack Router** setup optimized for Electron applications. This configuration solves common routing issues that occur when running React routers in Electron's `file://` protocol environment.
+
+#### Key Configuration Details
+
+**Hash History for Electron Compatibility:**
+```typescript
+// packages/renderer/src/main.tsx
+import { RouterProvider, createRouter, createHashHistory } from '@tanstack/react-router'
+
+// Create hash history for Electron compatibility (works with file:// protocol)
+const hashHistory = createHashHistory()
+
+const router = createRouter({
+  routeTree,
+  history: hashHistory,  // ← Critical for Electron apps
+  context: {},
+  defaultPreload: false,
+  defaultPreloadStaleTime: 0,
+})
+```
+
+**Vite Router Plugin Configuration:**
+```typescript
+// packages/renderer/vite.config.ts
+import vitePlugin from '@tanstack/router-plugin/vite'
+
+export default defineConfig({
+  plugins: [
+    vitePlugin({ 
+      autoCodeSplitting: true,
+      routesDirectory: './src/routes',
+      generatedRouteTree: './src/routeTree.gen.ts'
+    }),
+    // ... other plugins
+  ],
+})
+```
+
+#### Why Hash History?
+
+**The Problem:** Electron applications run on the `file://` protocol, which doesn't support browser history's `pushState` API. This causes routing failures with traditional browser history.
+
+**The Solution:** Hash history (`/#/route`) works entirely client-side and is compatible with any protocol, making it perfect for Electron desktop applications.
+
+#### Error Handling & Fallbacks
+
+The router setup includes robust error handling:
+
+```typescript
+try {
+  const root = ReactDOM.createRoot(rootElement)
+  root.render(<RouterProvider router={router} />)
+  console.log('TanStack Router rendered successfully')
+} catch (error) {
+  console.error('Router setup failed:', error)
+  // Fallback to HTML content if React/Router fails
+  rootElement.innerHTML = `<!-- Fallback content -->`
+}
+```
+
+#### Development vs Production
+
+- **Development (`pnpm start`)**: Router works with hot reload and dev tools
+- **Production (`pnpm run compile`)**: Router compiles to ~293KB bundle with full functionality
+- **Both environments**: Use identical hash-based routing for consistency
+
+#### Troubleshooting
+
+If you encounter routing issues:
+
+1. **Blank Screen**: Check browser console for React errors
+2. **"Not Found" Pages**: Ensure you're using `createHashHistory()`
+3. **Route Generation**: Verify `routeTree.gen.ts` is being generated
+4. **Windows Build Issues**: Code signing is disabled for development in `electron-builder.mjs`
+
+#### File Structure
+
+```
+packages/renderer/src/
+├── routes/
+│   ├── __root.tsx      # Root layout component
+│   └── index.tsx       # Home route (/)
+├── main.tsx            # Router setup and app entry
+└── routeTree.gen.ts    # Auto-generated route tree
+```
 
 ### Electron
 
@@ -77,7 +169,7 @@ Initially, the repository contains only a few packages.4
 ### Packages with building tools:
 
 - [`packages/integrate-renderer`](packages/integrate-renderer) - A helper package that is not included in the runtime.
-  It is used in `npm run init` to configure a new interface package.
+  It is used in `pnpm run init` to configure a new interface package.
 - [`packages/electron-versions`](packages/electron-versions) - A set of helper functions to get the versions of internal components bundled within Electron.
 
 ### Packages with app logic:
@@ -94,7 +186,7 @@ you can use any web application based on any framework or bundler as a package f
 There is only one requirement: the template expects to import renderer by `@app/renderer` name.
 
 > [!TIP]
-> You can create new renderer package in interactive mode by `npm run init`.
+> You can create new renderer package in interactive mode by `pnpm run init`.
 
 > [!NOTE]
 > If you are using a bundler other than vite,
@@ -108,7 +200,7 @@ When an application is ready to distribute, you need to compile it into executab
 We are using [electron-builder] for
 this.
 
-- You can compile application locally by `npm run compile`.
+- You can compile application locally by `pnpm run compile`.
   In this case, you will get executable that you cat share, but it will not support auto-updates out-of-box.
 - To have auto-updater, you should compile an application and publish it to one or more supported sources for distribution. In this case, all application instances will download and apply all new updates. This is done by GitHub action in [release.yml](.github/workflows/release.yml).
 
@@ -218,7 +310,7 @@ that need to be loaded.
 By default, there are two modes:
 
 - `production` is used by default
-- `development` is used by `npm start` script
+- `development` is used by `pnpm start` script
 
 When running the build script, the environment variables are loaded from the following files in your project root:
 
@@ -246,63 +338,122 @@ will not.
 > [!TIP]
 > You can change that prefix or add another. See [`envPrefix`](https://vitejs.dev/config/shared-options.html#envprefix).
 
-### NPM Scripts
+### PNPM Scripts
 
 ```sh
-npm start
+pnpm start
 ```
 Start application in development more with hot-reload.
 
 ---
 ```sh
-npm run build
+pnpm run build
 ```
 Runs the `build` command in all workspaces if present.
 
 ---
 ```sh
-npm run compile
+pnpm run compile
 ```
 First runs the `build` script,
 then compiles the project into executable using `electron-builder` with the specified configuration.
 
 ---
 ```sh
-npm run compile -- --dir -c.asar=false
+pnpm run compile -- --dir -c.asar=false
 ```
-Same as `npm run compile` but pass to `electron-builder` additional parameters to disable asar archive and installer
+Same as `pnpm run compile` but pass to `electron-builder` additional parameters to disable asar archive and installer
 creating.
 Useful for debugging compiled application.
 
 ---
 ```sh
-npm run test
+pnpm run test
 ```
 Executes end-to-end tests on **compiled app** using Playwright.
 
 ---
 ```sh
-npm run typecheck
+pnpm run typecheck
 ```
 Runs the `typecheck` command in all workspaces if present.
 
 ---
 ```sh
-npm run create-renderer
+pnpm run create-renderer
 ```
-Initializes a new Vite project named `renderer`. Basically same as `npm create vite`.
+Initializes a new Vite project named `renderer`. Basically same as `pnpm create vite`.
 
 ---
 ```sh
-npm run integrate-renderer
+pnpm run integrate-renderer
 ```
 Starts the integration process of the renderer using the Vite Electron builder.
 
 ---
 ```sh
-npm run init
+pnpm run init
 ```
 Set up the initial environment by creating a new renderer, integrating it, and installing the necessary packages.
+
+## Troubleshooting Common Issues
+
+### Router and React Issues
+
+**Problem: Blank screen in compiled Electron app**
+- **Cause**: React 19 compatibility issues with Electron's rendering context
+- **Solution**: The project uses hash history and proper error handling in `main.tsx`
+
+**Problem: "Cannot read properties of null (reading '_store')" error**
+- **Cause**: React 19's StrictMode conflicts with Electron environment
+- **Solution**: Router setup avoids StrictMode and uses simplified rendering
+
+**Problem: Routes showing "Not Found" in Electron**
+- **Cause**: Browser history doesn't work with `file://` protocol
+- **Solution**: Use `createHashHistory()` instead of `createBrowserHistory()`
+
+### Windows Development Issues
+
+**Problem: "EPERM: operation not permitted" during `pnpm run compile`**
+- **Cause**: Windows symbolic link permissions and code signing requirements
+- **Solution**: Code signing is disabled in `electron-builder.mjs`:
+  ```javascript
+  win: {
+    forceCodeSigning: false,
+    signAndEditExecutable: false
+  }
+  ```
+
+**Problem: "d3dcompiler_47.dll" access errors during build**
+- **Cause**: Windows file permissions during packaging
+- **Solution**: Run terminal as administrator or exclude from antivirus scanning
+
+### Development Server Issues
+
+**Problem: "ENOENT: no such file or directory, scandir routes"**
+- **Cause**: Router plugin looking for routes in wrong directory
+- **Solution**: Ensure `vite.config.ts` has correct `routesDirectory: './src/routes'`
+
+**Problem: Port conflicts (5173 already in use)**
+- **Cause**: Previous dev server still running
+- **Solution**: Kill Node.js processes: `Stop-Process -Name "node" -Force`
+
+### Bundle Size and Performance
+
+**Current optimized bundle sizes:**
+- Main bundle: ~293KB (includes full TanStack Router)
+- DevTools bundle: ~48KB (development features)
+- CSS bundle: ~6KB (Tailwind CSS)
+
+## Configuration Files Modified
+
+The following files contain project-specific configurations:
+
+1. **`packages/renderer/src/main.tsx`** - Router setup with hash history
+2. **`packages/renderer/vite.config.ts`** - Router plugin configuration
+3. **`electron-builder.mjs`** - Windows build settings (code signing disabled)
+4. **`packages/entry-point.mjs`** - Debug logging for path resolution
+5. **`packages/main/src/index.ts`** - Dev tools configuration
 
 ## Contribution
 
