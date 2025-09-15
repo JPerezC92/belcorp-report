@@ -1,0 +1,5 @@
+{
+	// Enable auto-formatting on save using Autormat
+	"editor.formatOnSave": true,
+	// Autormat: enable basic auto-formatting for supported languages
+}
