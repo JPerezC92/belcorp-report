@@ -1,5 +1,8 @@
 {
-	// Enable auto-formatting on save using Autormat
 	"editor.formatOnSave": true,
-	// Autormat: enable basic auto-formatting for supported languages
+	"editor.defaultFormatter": "biomejs.biome",
+	"editor.codeActionsOnSave": {
+		"source.organizeImports.biome": "explicit",
+		"source.fixAll.biome": "explicit"
+	}
 }
