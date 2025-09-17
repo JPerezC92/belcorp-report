@@ -1,6 +1,51 @@
 import { ipcMain } from "electron";
 import ExcelJS from "exceljs";
 import { z } from "zod";
+import { getDatabaseInstance } from "./SqlJsDatabaseModule.js";
+
+// Save TagRow[] to database using SQL.js
+export async function saveTagRowsWithSqlJs(
+	rowDataList: TagRow[]
+): Promise<void> {
+	const dbInstance = getDatabaseInstance();
+	if (!dbInstance) {
+		throw new Error("Database not initialized");
+	}
+
+	const transactionManager = dbInstance.getTransactionManager();
+	await transactionManager.executeInTransaction(async (db) => {
+		// Prepare the statement for batch insert
+		const stmt = db.prepare(
+			`INSERT INTO tag (createdTime, requestId, requestIdLink, informacionAdicional, modulo, problemId, problemIdLink, linkedRequestIdValue, linkedRequestIdLink, jira, categorizacion, technician) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		);
+
+		try {
+			// Execute batch insert for all rows
+			for (const row of rowDataList) {
+				stmt.run([
+					row.createdTime,
+					row.requestId.value,
+					row.requestId.link,
+					row.informacionAdicional,
+					row.modulo,
+					row.problemId.value,
+					row.problemId.link,
+					row.linkedRequestId.value,
+					row.linkedRequestId.link,
+					row.jira,
+					row.categorizacion,
+					row.technician,
+				]);
+			}
+		} finally {
+			// Free the statement
+			stmt.free();
+		}
+	});
+
+	// Force save to file after all inserts
+	await dbInstance.forceSave();
+}
 
 // Frontend response interfaces - Matching Zod schema output
 
@@ -214,6 +259,19 @@ export function initTagReportHandlers() {
 					rows: rowDataList,
 				});
 
+				// Save rows to database using SQL.js
+				try {
+					await saveTagRowsWithSqlJs(rowDataList);
+					console.log(
+						`Successfully saved ${rowDataList.length} rows from "${fileName}" to database using SQL.js`
+					);
+				} catch (dbError) {
+					console.warn(
+						"Failed to save rows to database with SQL.js:",
+						dbError
+					);
+				}
+
 				return {
 					success: true,
 					fileName,
@@ -296,6 +354,17 @@ export async function loadTagReport(
 		headerMap,
 		rows: rowDataList,
 	});
+
+	// Save rows to database using SQL.js
+	try {
+		await saveTagRowsWithSqlJs(rowDataList);
+		console.log(
+			`Successfully saved ${rowDataList.length} rows from "${fileName}" to database using SQL.js`
+		);
+	} catch (dbError) {
+		console.warn("Failed to save rows to database with SQL.js:", dbError);
+	}
+
 	return {
 		success: true,
 		fileName,

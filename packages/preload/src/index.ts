@@ -1,6 +1,6 @@
+import { ipcRenderer, shell } from "electron";
 import { sha256sum } from "./nodeCrypto.js";
 import { versions } from "./versions.js";
-import { ipcRenderer, shell } from "electron";
 
 function send(channel: string, message: string) {
 	return ipcRenderer.invoke(channel, message);
@@ -14,7 +14,7 @@ async function processExcelFile(fileBuffer: ArrayBuffer, fileName: string) {
 async function loadTagReport(
 	fileBuffer: ArrayBuffer,
 	fileName: string,
-	options?: any
+	options?: unknown
 ) {
 	return ipcRenderer.invoke(
 		"excel:load-tag-report",
@@ -28,17 +28,77 @@ async function validateExcelFile(fileBuffer: ArrayBuffer) {
 	return ipcRenderer.invoke("excel:validate-file", fileBuffer);
 }
 
-async function analyzeHyperlinks(worksheetData: any) {
+async function analyzeHyperlinks(worksheetData: {
+	name: string;
+	id: number;
+	rowCount: number;
+	columnCount: number;
+	data: {
+		rowNumber: number;
+		cells: {
+			value: unknown;
+			type: unknown;
+			address: string;
+			hyperlink?: {
+				text: string;
+				target: string;
+				tooltip?: string;
+			} | null;
+			isHyperlink: boolean;
+		}[];
+		values: unknown[];
+	}[];
+}) {
 	return ipcRenderer.invoke("excel:analyze-hyperlinks", worksheetData);
 }
 
 // V2 Enhanced hyperlink analysis
-async function analyzeHyperlinksV2(worksheetData: any) {
+async function analyzeHyperlinksV2(worksheetData: {
+	name: string;
+	id: number;
+	rowCount: number;
+	columnCount: number;
+	data: {
+		rowNumber: number;
+		cells: {
+			value: unknown;
+			type: unknown;
+			address: string;
+			hyperlink?: {
+				text: string;
+				target: string;
+				tooltip?: string;
+			} | null;
+			isHyperlink: boolean;
+		}[];
+		values: unknown[];
+	}[];
+}) {
 	return ipcRenderer.invoke("excel:analyze-hyperlinks-v2", worksheetData);
 }
 
 // V2 Sheet statistics
-async function getSheetStatisticsV2(worksheetData: any) {
+async function getSheetStatisticsV2(worksheetData: {
+	name: string;
+	id: number;
+	rowCount: number;
+	columnCount: number;
+	data: {
+		rowNumber: number;
+		cells: {
+			value: unknown;
+			type: unknown;
+			address: string;
+			hyperlink?: {
+				text: string;
+				target: string;
+				tooltip?: string;
+			} | null;
+			isHyperlink: boolean;
+		}[];
+		values: unknown[];
+	}[];
+}) {
 	return ipcRenderer.invoke("excel:get-sheet-statistics-v2", worksheetData);
 }
 
