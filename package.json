@@ -1,41 +1,44 @@
 {
-  "name": "root",
-  "description": "Secure boilerplate for Electron app based on Vite",
-  "version": "3.1.0",
-  "private": true,
-  "type": "module",
-  "author": {
-    "email": "kozackunisoft@gmail.com",
-    "name": "Alex Kozack",
-    "url": "https://kozack.me"
-  },
-  "main": "packages/entry-point.mjs",
-  "engines": {
-    "node": ">=23.0.0"
-  },
-  "scripts": {
-    "build": "pnpm run -r build",
-    "compile": "pnpm run build && electron-builder build --config electron-builder.mjs",
-    "test": "npx playwright test ./tests/e2e.spec.ts",
-    "start": "node packages/dev-mode.js",
-    "typecheck": "pnpm run -r typecheck",
-    "create-renderer": "cd packages && node ./integrate-renderer/create-renderer.js",
-    "integrate-renderer": "pnpm run --filter @app/integrate-renderer start",
-    "init": "pnpm run create-renderer && pnpm run integrate-renderer && pnpm install"
-  },
-  "devDependencies": {
-    "@playwright/test": "1.55.0",
-    "@types/node": "24.3.1",
-    "create-vite": "7.1.1",
-    "electron": "38.1.0",
-    "electron-builder": "26.0.12",
-    "glob": "11.0.3",
-    "playwright": "^1.55.0",
-    "vite": "7.1.5"
-  },
-  "dependencies": {
-    "@app/main": "*",
-    "@app/preload": "*",
-    "@app/renderer": "*"
-  }
+	"name": "root",
+	"description": "Secure boilerplate for Electron app based on Vite",
+	"version": "3.1.0",
+	"private": true,
+	"type": "module",
+	"author": {
+		"email": "kozackunisoft@gmail.com",
+		"name": "Alex Kozack",
+		"url": "https://kozack.me"
+	},
+	"main": "packages/entry-point.mjs",
+	"engines": {
+		"node": ">=23.0.0"
+	},
+	"scripts": {
+		"build": "pnpm run -r build",
+		"compile": "pnpm run build && electron-builder build --config electron-builder.mjs",
+		"test": "npx playwright test ./tests/e2e.spec.ts",
+		"start": "node packages/dev-mode.js",
+		"typecheck": "pnpm run -r typecheck",
+		"create-renderer": "cd packages && node ./integrate-renderer/create-renderer.js",
+		"integrate-renderer": "pnpm run --filter @app/integrate-renderer start",
+		"init": "pnpm run create-renderer && pnpm run integrate-renderer && pnpm install"
+	},
+	"devDependencies": {
+		"@playwright/test": "1.55.0",
+		"@types/better-sqlite3": "7.6.13",
+		"@types/node": "24.3.1",
+		"@types/sql.js": "1.4.9",
+		"create-vite": "7.1.1",
+		"electron": "38.1.0",
+		"electron-builder": "26.0.12",
+		"electron-rebuild": "3.2.9",
+		"glob": "11.0.3",
+		"playwright": "^1.55.0",
+		"vite": "7.1.5"
+	},
+	"dependencies": {
+		"@app/main": "*",
+		"@app/preload": "*",
+		"@app/renderer": "*"
+	}
 }

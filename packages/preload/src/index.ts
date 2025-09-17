@@ -1,9 +1,120 @@
-import {sha256sum} from './nodeCrypto.js';
-import {versions} from './versions.js';
-import {ipcRenderer} from 'electron';
+import { ipcRenderer, shell } from "electron";
+import { sha256sum } from "./nodeCrypto.js";
+import { versions } from "./versions.js";
 
 function send(channel: string, message: string) {
-  return ipcRenderer.invoke(channel, message);
+	return ipcRenderer.invoke(channel, message);
 }
 
-export {sha256sum, versions, send};
+async function processExcelFile(fileBuffer: ArrayBuffer, fileName: string) {
+	return ipcRenderer.invoke("excel:process-file", fileBuffer, fileName);
+}
+
+// Load TAG report Excel file
+async function loadTagReport(
+	fileBuffer: ArrayBuffer,
+	fileName: string,
+	options?: unknown
+) {
+	return ipcRenderer.invoke(
+		"excel:load-tag-report",
+		fileBuffer,
+		fileName,
+		options
+	);
+}
+
+async function validateExcelFile(fileBuffer: ArrayBuffer) {
+	return ipcRenderer.invoke("excel:validate-file", fileBuffer);
+}
+
+async function analyzeHyperlinks(worksheetData: {
+	name: string;
+	id: number;
+	rowCount: number;
+	columnCount: number;
+	data: {
+		rowNumber: number;
+		cells: {
+			value: unknown;
+			type: unknown;
+			address: string;
+			hyperlink?: {
+				text: string;
+				target: string;
+				tooltip?: string;
+			} | null;
+			isHyperlink: boolean;
+		}[];
+		values: unknown[];
+	}[];
+}) {
+	return ipcRenderer.invoke("excel:analyze-hyperlinks", worksheetData);
+}
+
+// V2 Enhanced hyperlink analysis
+async function analyzeHyperlinksV2(worksheetData: {
+	name: string;
+	id: number;
+	rowCount: number;
+	columnCount: number;
+	data: {
+		rowNumber: number;
+		cells: {
+			value: unknown;
+			type: unknown;
+			address: string;
+			hyperlink?: {
+				text: string;
+				target: string;
+				tooltip?: string;
+			} | null;
+			isHyperlink: boolean;
+		}[];
+		values: unknown[];
+	}[];
+}) {
+	return ipcRenderer.invoke("excel:analyze-hyperlinks-v2", worksheetData);
+}
+
+// V2 Sheet statistics
+async function getSheetStatisticsV2(worksheetData: {
+	name: string;
+	id: number;
+	rowCount: number;
+	columnCount: number;
+	data: {
+		rowNumber: number;
+		cells: {
+			value: unknown;
+			type: unknown;
+			address: string;
+			hyperlink?: {
+				text: string;
+				target: string;
+				tooltip?: string;
+			} | null;
+			isHyperlink: boolean;
+		}[];
+		values: unknown[];
+	}[];
+}) {
+	return ipcRenderer.invoke("excel:get-sheet-statistics-v2", worksheetData);
+}
+
+async function openExternal(url: string) {
+	return shell.openExternal(url);
+}
+
+export {
+	sha256sum,
+	versions,
+	send,
+	processExcelFile,
+	loadTagReport,
+	validateExcelFile,
+	analyzeHyperlinks,
+	analyzeHyperlinksV2,
+	getSheetStatisticsV2,
+	openExternal,
+};
