@@ -15,19 +15,23 @@
 	},
 	"scripts": {
 		"build": "pnpm run -r build",
+		"dev:libs": "pnpm run --parallel --filter @app/core --filter @app/database dev",
+		"dev:full": "concurrently \"pnpm run dev:libs\" \"pnpm start\"",
 		"compile": "pnpm run build && electron-builder build --config electron-builder.mjs",
 		"test": "npx playwright test ./tests/e2e.spec.ts",
 		"start": "node packages/dev-mode.js",
 		"typecheck": "pnpm run -r typecheck",
 		"create-renderer": "cd packages && node ./integrate-renderer/create-renderer.js",
 		"integrate-renderer": "pnpm run --filter @app/integrate-renderer start",
-		"init": "pnpm run create-renderer && pnpm run integrate-renderer && pnpm install"
+		"init": "pnpm run create-renderer && pnpm run integrate-renderer && pnpm install",
+		"clean": "pnpm run -r clean"
 	},
 	"devDependencies": {
 		"@playwright/test": "1.55.0",
 		"@types/better-sqlite3": "7.6.13",
 		"@types/node": "24.3.1",
 		"@types/sql.js": "1.4.9",
+		"concurrently": "9.2.1",
 		"create-vite": "7.1.1",
 		"electron": "38.1.0",
 		"electron-builder": "26.0.12",
@@ -37,6 +41,8 @@
 		"vite": "7.1.5"
 	},
 	"dependencies": {
+		"@app/core": "*",
+		"@app/database": "*",
 		"@app/main": "*",
 		"@app/preload": "*",
 		"@app/renderer": "*"

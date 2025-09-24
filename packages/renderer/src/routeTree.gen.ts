@@ -9,18 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TagReportRouteImport } from './routes/tag-report'
-import { Route as LabelingReportRouteImport } from './routes/labeling-report'
+import { Route as TaggingV3RouteImport } from './routes/tagging-v3'
 import { Route as IndexRouteImport } from './routes/index'
 
-const TagReportRoute = TagReportRouteImport.update({
-  id: '/tag-report',
-  path: '/tag-report',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LabelingReportRoute = LabelingReportRouteImport.update({
-  id: '/labeling-report',
-  path: '/labeling-report',
+const TaggingV3Route = TaggingV3RouteImport.update({
+  id: '/tagging-v3',
+  path: '/tagging-v3',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -31,48 +25,37 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/labeling-report': typeof LabelingReportRoute
-  '/tag-report': typeof TagReportRoute
+  '/tagging-v3': typeof TaggingV3Route
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/labeling-report': typeof LabelingReportRoute
-  '/tag-report': typeof TagReportRoute
+  '/tagging-v3': typeof TaggingV3Route
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/labeling-report': typeof LabelingReportRoute
-  '/tag-report': typeof TagReportRoute
+  '/tagging-v3': typeof TaggingV3Route
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/labeling-report' | '/tag-report'
+  fullPaths: '/' | '/tagging-v3'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/labeling-report' | '/tag-report'
-  id: '__root__' | '/' | '/labeling-report' | '/tag-report'
+  to: '/' | '/tagging-v3'
+  id: '__root__' | '/' | '/tagging-v3'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  LabelingReportRoute: typeof LabelingReportRoute
-  TagReportRoute: typeof TagReportRoute
+  TaggingV3Route: typeof TaggingV3Route
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tag-report': {
-      id: '/tag-report'
-      path: '/tag-report'
-      fullPath: '/tag-report'
-      preLoaderRoute: typeof TagReportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/labeling-report': {
-      id: '/labeling-report'
-      path: '/labeling-report'
-      fullPath: '/labeling-report'
-      preLoaderRoute: typeof LabelingReportRouteImport
+    '/tagging-v3': {
+      id: '/tagging-v3'
+      path: '/tagging-v3'
+      fullPath: '/tagging-v3'
+      preLoaderRoute: typeof TaggingV3RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -87,8 +70,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  LabelingReportRoute: LabelingReportRoute,
-  TagReportRoute: TagReportRoute,
+  TaggingV3Route: TaggingV3Route,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

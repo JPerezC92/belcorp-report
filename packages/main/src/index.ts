@@ -3,17 +3,20 @@ import { createModuleRunner } from "./ModuleRunner.js";
 import { terminateAppOnLastWindowClose } from "./modules/ApplicationTerminatorOnLastWindowClose.js";
 import { autoUpdater } from "./modules/AutoUpdater.js";
 import { allowInternalOrigins } from "./modules/BlockNotAllowdOrigins.js";
-import { initExcelHandlers } from "./modules/ExcelProcessor.js";
+import { createDatabaseModule } from "./modules/DatabaseModule.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
 import { hardwareAccelerationMode } from "./modules/HardwareAccelerationModule.js";
 import { disallowMultipleAppInstance } from "./modules/SingleInstanceApp.js";
-import { createSqlJsDatabaseModule } from "./modules/SqlJsDatabaseModule.js";
-import { initTagReportHandlers } from "./modules/TagReportProcessor.js";
+import { createTagDataModule } from "./modules/TagDataModule.js";
 import { createWindowManagerModule } from "./modules/WindowManager.js";
 
 export async function initApp(initConfig: AppInitConfig) {
+	// Create database module reference
+	const databaseModule = createDatabaseModule();
+
 	const moduleRunner = createModuleRunner()
-		.init(createSqlJsDatabaseModule()) // Initialize SQL.js SQLite database
+		.init(databaseModule) // Initialize DatabaseModule with migrations
+		.init(createTagDataModule()) // Initialize tag data IPC handlers
 		.init(createWindowManagerModule({ initConfig, openDevTools: true })) // Enable dev tools temporarily for debugging
 		.init(disallowMultipleAppInstance())
 		.init(terminateAppOnLastWindowClose())
@@ -52,12 +55,6 @@ export async function initApp(initConfig: AppInitConfig) {
 				)
 			)
 		);
-
-	// Initialize Excel handlers
-	initExcelHandlers();
-
-	// Initialize V2 Excel handlers with enhanced validation
-	initTagReportHandlers();
 
 	await moduleRunner;
 }

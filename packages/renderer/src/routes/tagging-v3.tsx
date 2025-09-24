@@ -1,0 +1,480 @@
+import { type TagResponseArrayDto, tagResponseArraySchema } from "@app/core";
+import { createFileRoute } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
+import { getPreloadHandler } from "@/constants/preloadHandlers";
+
+export const Route = createFileRoute("/tagging-v3")({
+	component: TaggingV3Component,
+});
+
+function TaggingV3Component() {
+	const [tags, setTags] = useState<TagResponseArrayDto>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [parseStatus, setParseStatus] = useState<{
+		loading: boolean;
+		error: string | null;
+		success: string | null;
+	}>({
+		loading: false,
+		error: null,
+		success: null,
+	});
+
+	const handleFileUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>,
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		setParseStatus({ loading: true, error: null, success: null });
+
+		try {
+			const uploadAndParseTagReport = getPreloadHandler("parseTagReport");
+			if (!uploadAndParseTagReport) {
+				throw new Error("Tag report upload function not available");
+			}
+			const fileBuffer = await file.arrayBuffer();
+			await uploadAndParseTagReport(fileBuffer, file.name);
+			setParseStatus({
+				loading: false,
+				error: null,
+				success: `Successfully parsed ${file.name}. Check console for details.`,
+			});
+			await loadTags();
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: "Unknown error occurred";
+			console.error("Error parsing file:", error);
+			setParseStatus({
+				loading: false,
+				error: errorMessage,
+				success: null,
+			});
+		}
+	};
+
+	const loadTags = useCallback(async () => {
+		try {
+			setLoading(true);
+			setError(null);
+
+			const fetchAllTags = getPreloadHandler("getAllTags");
+			if (!fetchAllTags) {
+				throw new Error("Tag fetch function not available");
+			}
+			const result = await fetchAllTags();
+			const validatedResult = tagResponseArraySchema.parse(result);
+			setTags(validatedResult);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: "Unknown error occurred";
+			console.error("Error loading tags:", error);
+			setError(errorMessage);
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	const handleExternalLink = async (url: string) => {
+		try {
+			const openExternal = getPreloadHandler("openExternal");
+			if (openExternal) {
+				await openExternal(url);
+			}
+		} catch (error) {
+			console.error("Failed to open external link:", error);
+		}
+	};
+
+	useEffect(() => {
+		loadTags();
+	}, [loadTags]);
+
+	if (loading) {
+		return (
+			<div className="p-8">
+				<h1 className="text-2xl font-bold mb-6">
+					Tagging V3 - Loading...
+				</h1>
+				<div className="text-gray-600">Loading tags...</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="p-8">
+				<h1 className="text-2xl font-bold mb-6 text-red-600">
+					Tagging V3 - Error
+				</h1>
+				<div className="text-red-600">Error: {error}</div>
+			</div>
+		);
+	}
+	if (loading) {
+		return (
+			<div className="container mx-auto px-4 py-8">
+				<div className="max-w-6xl mx-auto">
+					<h1 className="text-3xl font-bold text-gray-800 mb-6">
+						Tagging v3
+					</h1>
+					<div className="bg-white rounded-lg shadow-md p-6">
+						<div className="text-center py-12">
+							<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+							<p className="text-gray-500">Loading tag data...</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="container mx-auto px-4 py-8">
+				<div className="max-w-6xl mx-auto">
+					<h1 className="text-3xl font-bold text-gray-800 mb-6">
+						Tagging v3
+					</h1>
+					<div className="bg-white rounded-lg shadow-md p-6">
+						<div className="text-center py-12">
+							<div className="text-red-500 mb-4">
+								<svg
+									className="mx-auto h-12 w-12"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									role="img"
+									aria-labelledby="error-icon-title"
+								>
+									<title id="error-icon-title">
+										Error icon
+									</title>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+									/>
+								</svg>
+							</div>
+							<h2 className="text-xl font-semibold text-red-700 mb-2">
+								Error Loading Data
+							</h2>
+							<p className="text-red-600 mb-4">{error}</p>
+							<button
+								type="button"
+								onClick={() => window.location.reload()}
+								className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+							>
+								Retry
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="container mx-auto px-4 py-8">
+			<div className="max-w-6xl mx-auto">
+				<h1 className="text-3xl font-bold text-gray-800 mb-6">
+					Tagging v3
+				</h1>
+
+				{/* File Upload Section */}
+				<div className="bg-white rounded-lg shadow-md mb-6">
+					<div className="px-6 py-4 border-b border-gray-200">
+						<h2 className="text-xl font-semibold text-gray-800">
+							Upload TAG Report
+						</h2>
+						<p className="text-gray-600">
+							Upload an Excel file to parse TAG report data using
+							the new core parser
+						</p>
+					</div>
+					<div className="p-6">
+						<div className="mb-4">
+							<label
+								htmlFor="file-upload"
+								className="block text-sm font-medium text-gray-700 mb-2"
+							>
+								Select Excel File
+							</label>
+							<input
+								id="file-upload"
+								type="file"
+								accept=".xlsx,.xls"
+								onChange={handleFileUpload}
+								disabled={parseStatus.loading}
+								className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+							/>
+						</div>
+
+						{parseStatus.loading && (
+							<div className="flex items-center text-blue-600 mb-4">
+								<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+								<span className="text-sm">Parsing file...</span>
+							</div>
+						)}
+
+						{parseStatus.error && (
+							<div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+								<div className="flex">
+									<div className="flex-shrink-0">
+										<svg
+											className="h-5 w-5 text-red-400"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+											role="img"
+											aria-labelledby="error-icon-title"
+										>
+											<title id="error-icon-title">
+												Error icon
+											</title>
+											<path
+												fillRule="evenodd"
+												d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+												clipRule="evenodd"
+											/>
+										</svg>
+									</div>
+									<div className="ml-3">
+										<h3 className="text-sm font-medium text-red-800">
+											Parse Error
+										</h3>
+										<div className="mt-2 text-sm text-red-700">
+											{parseStatus.error}
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
+
+						{parseStatus.success && (
+							<div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+								<div className="flex">
+									<div className="flex-shrink-0">
+										<svg
+											className="h-5 w-5 text-green-400"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+											role="img"
+											aria-labelledby="success-icon-title"
+										>
+											<title id="success-icon-title">
+												Success icon
+											</title>
+											<path
+												fillRule="evenodd"
+												d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+												clipRule="evenodd"
+											/>
+										</svg>
+									</div>
+									<div className="ml-3">
+										<h3 className="text-sm font-medium text-green-800">
+											Success
+										</h3>
+										<div className="mt-2 text-sm text-green-700">
+											{parseStatus.success}
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+
+				<div className="bg-white rounded-lg shadow-md mb-6">
+					<div className="px-6 py-4 border-b border-gray-200">
+						<h2 className="text-xl font-semibold text-gray-800">
+							Tag Data ({tags.length} records)
+						</h2>
+						<p className="text-gray-600">
+							Live data from tag_v2 database using clean
+							architecture
+						</p>
+					</div>
+
+					<div className="overflow-x-auto">
+						<table className="min-w-full divide-y divide-gray-200">
+							<thead className="bg-gray-50">
+								<tr>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Created
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Request ID
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Additional Info
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Module
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Problem ID
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Linked Request
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Technician
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										Category
+									</th>
+									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+										JIRA
+									</th>
+								</tr>
+							</thead>
+							<tbody className="bg-white divide-y divide-gray-200">
+								{tags.map((tag) => (
+									<tr
+										key={tag.id}
+										className="hover:bg-gray-50"
+									>
+										<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+											{tag.createdTime}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											{tag.requestId.link ? (
+												<button
+													type="button"
+													onClick={() =>
+														handleExternalLink(
+															tag.requestId.link,
+														)
+													}
+													className="text-blue-600 hover:text-blue-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+												>
+													{tag.requestId.value}
+												</button>
+											) : (
+												<span className="text-sm text-gray-900">
+													{tag.requestId.value}
+												</span>
+											)}
+										</td>
+										<td
+											className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate"
+											title={tag.informacionAdicional}
+										>
+											{tag.informacionAdicional}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+												{tag.modulo}
+											</span>
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											{tag.problemId.link ? (
+												<button
+													type="button"
+													onClick={() =>
+														handleExternalLink(
+															tag.problemId.link,
+														)
+													}
+													className="text-green-600 hover:text-green-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+												>
+													{tag.problemId.value}
+												</button>
+											) : (
+												<span className="text-sm text-gray-900">
+													{tag.problemId.value}
+												</span>
+											)}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											{tag.linkedRequestId.link ? (
+												<button
+													type="button"
+													onClick={() =>
+														handleExternalLink(
+															tag.linkedRequestId
+																.link,
+														)
+													}
+													className="text-purple-600 hover:text-purple-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+												>
+													{tag.linkedRequestId.value}
+												</button>
+											) : (
+												<span className="text-sm text-gray-900">
+													{tag.linkedRequestId.value}
+												</span>
+											)}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+											{tag.technician}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+												{tag.categorizacion}
+											</span>
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap text-sm">
+											{tag.jira && (
+												<span className="text-purple-600 font-mono">
+													{tag.jira}
+												</span>
+											)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				{/* Additional Information Panel */}
+				<div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+					<h3 className="text-lg font-medium text-blue-800 mb-3">
+						🎉 Clean Architecture Implementation
+					</h3>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+						<div>
+							<h4 className="font-medium text-blue-800 mb-2">
+								📦 Backend
+							</h4>
+							<ul className="text-sm text-blue-700 space-y-1">
+								<li>• TagService (Service Container)</li>
+								<li>• SqlJsTagRepository (Infrastructure)</li>
+								<li>• TagFinder (Use Case)</li>
+							</ul>
+						</div>
+						<div>
+							<h4 className="font-medium text-blue-800 mb-2">
+								🔗 IPC Bridge
+							</h4>
+							<ul className="text-sm text-blue-700 space-y-1">
+								<li>• TagDataModule (Main Process)</li>
+								<li>• Preload Script Exposure</li>
+								<li>• Type-safe Communication</li>
+							</ul>
+						</div>
+						<div>
+							<h4 className="font-medium text-blue-800 mb-2">
+								🎨 Frontend
+							</h4>
+							<ul className="text-sm text-blue-700 space-y-1">
+								<li>• React Component</li>
+								<li>• TanStack Router</li>
+								<li>• Tailwind CSS Styling</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	);
+}
