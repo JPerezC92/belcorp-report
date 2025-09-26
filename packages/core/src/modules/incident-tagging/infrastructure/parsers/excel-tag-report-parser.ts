@@ -1,12 +1,18 @@
-import { Tag } from "@core/modules/incident-tagging/domain/tag.js";
+import type { Tag } from "@core/modules/incident-tagging/domain/tag.js";
 import type {
 	TagReportParseResult,
 	TagReportParser,
 	TagReportSheet,
 } from "@core/modules/incident-tagging/domain/tag-report-parser.js";
+import { excelTagDtoToDomain } from "@core/modules/incident-tagging/infrastructure/adapters/excelTagDtoToDomain.adapter.js";
 import { excelTagSchema } from "@core/modules/incident-tagging/infrastructure/dtos/excel-tag.dto.js";
+import {
+	extractCellValueAndLink,
+	extractHeaderValue,
+	isLinkColumn,
+	validateHeaders,
+} from "@core/modules/incident-tagging/infrastructure/utils/excel-parsing.utils.js";
 import ExcelJS from "exceljs";
-import { z } from "zod";
 
 export class ExcelTagReportParser implements TagReportParser {
 	private readonly targetSheetName = "ManageEngine Report Framework";
@@ -46,18 +52,6 @@ export class ExcelTagReportParser implements TagReportParser {
 		this.headerLabels.technician,
 	];
 
-	private readonly headerSchema = z.tuple([
-		z.literal(this.headerLabels.createdTime),
-		z.literal(this.headerLabels.requestId),
-		z.literal(this.headerLabels.additionalInfo),
-		z.literal(this.headerLabels.module),
-		z.literal(this.headerLabels.problemId),
-		z.literal(this.headerLabels.linkedRequestId),
-		z.literal(this.headerLabels.jira),
-		z.literal(this.headerLabels.categorization),
-		z.literal(this.headerLabels.technician),
-	]);
-
 	async parseExcel(
 		fileBuffer: ArrayBuffer,
 		fileName: string
@@ -76,7 +70,7 @@ export class ExcelTagReportParser implements TagReportParser {
 				);
 			}
 
-			// Remove first column as per original logic
+			// Remove first column thats empty
 			worksheet.spliceColumns(1, 1);
 
 			const headers = this.extractHeaders(worksheet);
@@ -109,10 +103,11 @@ export class ExcelTagReportParser implements TagReportParser {
 	private extractHeaders(worksheet: ExcelJS.Worksheet): string[] {
 		const headers = this.columnLetters.map((col) => {
 			const cell = worksheet.getCell(`${col}1`);
-			return String(cell.text || `Column${col}`);
+			return extractHeaderValue(cell, col);
 		});
 
-		return this.headerSchema.parse(headers);
+		validateHeaders(headers, this.headerOrder, this.headerOrder.length);
+		return headers;
 	}
 
 	private extractRows(
@@ -129,48 +124,33 @@ export class ExcelTagReportParser implements TagReportParser {
 					const header = headers[index];
 					if (!header) return {};
 
+					const cell = row.getCell(col);
+					const { value: cellValue, link: cellLink } =
+						extractCellValueAndLink(cell);
+
 					return {
-						[header]: this.isLinkColumn(header)
+						[header]: isLinkColumn(header, [
+							this.headerLabels.requestId,
+							this.headerLabels.problemId,
+							this.headerLabels.linkedRequestId,
+						])
 							? {
-									value: row.getCell(col).text || "",
-									link: row.getCell(col).hyperlink || "",
+									value: cellValue,
+									link: cellLink,
 							  }
-							: row.getCell(col).text || "",
+							: cellValue,
 					};
 				})
 				.reduce((acc, curr) => ({ ...acc, ...curr }), {});
 
 			const parsed = excelTagSchema.parse(rowObject);
 
-			// Create Tag domain object from parsed data
-			const tag = Tag.create({
-				createdTime: parsed.createdTime,
-				requestId: parsed.requestId.value,
-				requestIdLink: parsed.requestId.link,
-				informacionAdicional: parsed.informacionAdicional,
-				modulo: parsed.modulo,
-				problemId: parsed.problemId.value,
-				problemIdLink: parsed.problemId.link,
-				linkedRequestId: parsed.linkedRequestId.value,
-				linkedRequestIdLink: parsed.linkedRequestId.link,
-				jira: parsed.jira,
-				categorizacion: parsed.categorizacion,
-				technician: parsed.technician,
-			});
+			// Create Tag domain object from parsed data using adapter
+			const tag = excelTagDtoToDomain(parsed);
 
 			rowDataList.push(tag);
 		});
 
 		return rowDataList;
-	}
-
-	private isLinkColumn(header: string): boolean {
-		const linkHeaders = [
-			this.headerLabels.requestId,
-			this.headerLabels.problemId,
-			this.headerLabels.linkedRequestId,
-		] as const;
-
-		return linkHeaders.includes(header as (typeof linkHeaders)[number]);
 	}
 }

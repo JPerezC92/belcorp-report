@@ -285,6 +285,173 @@ export const migrations: Migration[] = [
 			);
 		},
 	},
+	{
+		version: "005",
+		description: "Create for_tagging_data table for Excel import data",
+		dependencies: ["004"],
+		up: (db: Database) => {
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.FOR_TAGGING_DATA} (
+					requestId TEXT PRIMARY KEY,
+					technician TEXT,
+					createdTime TEXT,
+					modulo TEXT,
+					subject TEXT,
+					problemId TEXT,
+					linkedRequestId TEXT,
+					category TEXT,
+					importedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+					sourceFile TEXT
+				)
+			`);
+
+			// Create indexes for better query performance
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_category ON ${TABLE_NAMES.FOR_TAGGING_DATA}(category)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_technician ON ${TABLE_NAMES.FOR_TAGGING_DATA}(technician)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_createdTime ON ${TABLE_NAMES.FOR_TAGGING_DATA}(createdTime)`
+			);
+		},
+		down: (db: Database) => {
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.FOR_TAGGING_DATA}`);
+		},
+	},
+	{
+		version: "006",
+		description: "Add link columns to for_tagging_data table",
+		dependencies: ["005"],
+		up: (db: Database) => {
+			// Add link columns to existing table
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN requestIdLink TEXT`
+			);
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN subjectLink TEXT`
+			);
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN problemIdLink TEXT`
+			);
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN linkedRequestIdLink TEXT`
+			);
+		},
+		down: (db: Database) => {
+			// SQLite doesn't support dropping columns, so we recreate the table without link columns
+			db.run(`
+				CREATE TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
+					requestId TEXT PRIMARY KEY,
+					technician TEXT,
+					createdTime TEXT,
+					modulo TEXT,
+					subject TEXT,
+					problemId TEXT,
+					linkedRequestId TEXT,
+					category TEXT,
+					importedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+					sourceFile TEXT
+				)
+			`);
+
+			// Copy data from old table to new table (excluding link columns)
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
+					requestId, technician, createdTime, modulo, subject,
+					problemId, linkedRequestId, category, importedAt, sourceFile
+				)
+				SELECT requestId, technician, createdTime, modulo, subject,
+					   problemId, linkedRequestId, category, importedAt, sourceFile
+				FROM ${TABLE_NAMES.FOR_TAGGING_DATA}
+			`);
+
+			// Drop old table and rename new table
+			db.run(`DROP TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}`);
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp RENAME TO ${TABLE_NAMES.FOR_TAGGING_DATA}`
+			);
+
+			// Recreate indexes
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_category ON ${TABLE_NAMES.FOR_TAGGING_DATA}(category)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_technician ON ${TABLE_NAMES.FOR_TAGGING_DATA}(technician)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_createdTime ON ${TABLE_NAMES.FOR_TAGGING_DATA}(createdTime)`
+			);
+		},
+	},
+	{
+		version: "007",
+		description:
+			"Remove importedAt and sourceFile columns from for_tagging_data table",
+		dependencies: ["006"],
+		up: (db: Database) => {
+			// Create new table without importedAt and sourceFile columns
+			db.run(`
+				CREATE TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
+					requestId TEXT PRIMARY KEY,
+					technician TEXT,
+					createdTime TEXT,
+					modulo TEXT,
+					subject TEXT,
+					problemId TEXT,
+					linkedRequestId TEXT,
+					category TEXT,
+					requestIdLink TEXT,
+					subjectLink TEXT,
+					problemIdLink TEXT,
+					linkedRequestIdLink TEXT
+				)
+			`);
+
+			// Copy data from old table to new table (excluding importedAt and sourceFile)
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
+					requestId, technician, createdTime, modulo, subject, problemId,
+					linkedRequestId, category, requestIdLink, subjectLink,
+					problemIdLink, linkedRequestIdLink
+				)
+				SELECT
+					requestId, technician, createdTime, modulo, subject, problemId,
+					linkedRequestId, category, requestIdLink, subjectLink,
+					problemIdLink, linkedRequestIdLink
+				FROM ${TABLE_NAMES.FOR_TAGGING_DATA}
+			`);
+
+			// Drop old table
+			db.run(`DROP TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}`);
+
+			// Rename new table to original name
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp RENAME TO ${TABLE_NAMES.FOR_TAGGING_DATA}`
+			);
+
+			// Recreate indexes
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_category ON ${TABLE_NAMES.FOR_TAGGING_DATA}(category)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_technician ON ${TABLE_NAMES.FOR_TAGGING_DATA}(technician)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_createdTime ON ${TABLE_NAMES.FOR_TAGGING_DATA}(createdTime)`
+			);
+		},
+		down: (db: Database) => {
+			// Add back the columns (reverse migration)
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN importedAt TEXT DEFAULT CURRENT_TIMESTAMP`
+			);
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN sourceFile TEXT`
+			);
+		},
+	},
 	// Add more migrations here as your schema evolves
 ];
 

@@ -5,6 +5,7 @@ import { autoUpdater } from "./modules/AutoUpdater.js";
 import { allowInternalOrigins } from "./modules/BlockNotAllowdOrigins.js";
 import { createDatabaseModule } from "./modules/DatabaseModule.js";
 import { allowExternalUrls } from "./modules/ExternalUrls.js";
+import { createForTaggingDataExcelModule } from "./modules/ForTaggingDataExcelModule.js";
 import { hardwareAccelerationMode } from "./modules/HardwareAccelerationModule.js";
 import { disallowMultipleAppInstance } from "./modules/SingleInstanceApp.js";
 import { createTagDataModule } from "./modules/TagDataModule.js";
@@ -17,6 +18,7 @@ export async function initApp(initConfig: AppInitConfig) {
 	const moduleRunner = createModuleRunner()
 		.init(databaseModule) // Initialize DatabaseModule with migrations
 		.init(createTagDataModule()) // Initialize tag data IPC handlers
+		.init(createForTaggingDataExcelModule()) // Initialize Excel processing IPC handlers
 		.init(createWindowManagerModule({ initConfig, openDevTools: true })) // Enable dev tools temporarily for debugging
 		.init(disallowMultipleAppInstance())
 		.init(terminateAppOnLastWindowClose())

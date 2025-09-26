@@ -7,14 +7,14 @@ export function excelTagDtoToDomain(dto: ExcelTagDto): Tag {
 		createdTime: dto.createdTime,
 		requestId: dto.requestId.value,
 		requestIdLink: dto.requestId.link,
-		informacionAdicional: dto.informacionAdicional,
-		modulo: dto.modulo,
+		additionalInfo: dto.additionalInfo,
+		module: dto.module,
 		problemId: dto.problemId.value,
 		problemIdLink: dto.problemId.link,
 		linkedRequestId: dto.linkedRequestId.value,
 		linkedRequestIdLink: dto.linkedRequestId.link,
 		jira: dto.jira,
-		categorizacion: dto.categorizacion,
+		categorization: dto.categorization,
 		technician: dto.technician,
 	});
 }
@@ -27,8 +27,8 @@ export function tagDomainToResponse(tag: Tag): TagResponseDto {
 			value: tag.requestId,
 			link: tag.requestIdLink,
 		},
-		informacionAdicional: tag.informacionAdicional,
-		modulo: tag.modulo,
+		additionalInfo: tag.additionalInfo,
+		module: tag.module,
 		problemId: {
 			value: tag.problemId,
 			link: tag.problemIdLink,
@@ -38,7 +38,7 @@ export function tagDomainToResponse(tag: Tag): TagResponseDto {
 			link: tag.linkedRequestIdLink,
 		},
 		jira: tag.jira,
-		categorizacion: tag.categorizacion,
+		categorization: tag.categorization,
 		technician: tag.technician,
 	};
 }

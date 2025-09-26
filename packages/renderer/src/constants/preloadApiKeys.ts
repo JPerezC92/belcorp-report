@@ -8,4 +8,9 @@ export const preloadApiKeys = {
 	send: btoa("send") as keyof Window,
 	sha256sum: btoa("sha256sum") as keyof Window,
 	versions: btoa("versions") as keyof Window,
+	parseForTaggingDataExcel: btoa("parseForTaggingDataExcel") as keyof Window,
+	parseAndSaveForTaggingDataExcel: btoa(
+		"parseAndSaveForTaggingDataExcel"
+	) as keyof Window,
+	getAllForTaggingData: btoa("getAllForTaggingData") as keyof Window,
 };

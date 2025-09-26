@@ -19,25 +19,37 @@ export const excelTagSchema = z
 		[headerLabels.createdTime]: z.string(),
 		[headerLabels.requestId]: z.object({
 			value: z
-				.object({ richText: z.array(z.object({ text: z.string() })) })
+				.object({ richText: z.array(z.object({ text: z.unknown() })) })
 				.optional()
-				.transform((val) => val?.richText[0]?.text || ""),
+				.transform((val) => {
+					if (!val?.richText?.[0]) return "";
+					const text = val.richText[0].text;
+					return typeof text === "string" ? text : "";
+				}),
 			link: z.string(),
 		}),
 		[headerLabels.additionalInfo]: z.string(),
 		[headerLabels.module]: z.string(),
 		[headerLabels.problemId]: z.object({
 			value: z
-				.object({ richText: z.array(z.object({ text: z.string() })) })
+				.object({ richText: z.array(z.object({ text: z.unknown() })) })
 				.optional()
-				.transform((val) => val?.richText[0]?.text || ""),
+				.transform((val) => {
+					if (!val?.richText?.[0]) return "";
+					const text = val.richText[0].text;
+					return typeof text === "string" ? text : "";
+				}),
 			link: z.string(),
 		}),
 		[headerLabels.linkedRequestId]: z.object({
 			value: z
-				.object({ richText: z.array(z.object({ text: z.string() })) })
+				.object({ richText: z.array(z.object({ text: z.unknown() })) })
 				.optional()
-				.transform((val) => val?.richText[0]?.text || ""),
+				.transform((val) => {
+					if (!val?.richText?.[0]) return "";
+					const text = val.richText[0].text;
+					return typeof text === "string" ? text : "";
+				}),
 			link: z.string(),
 		}),
 		[headerLabels.jira]: z.string(),
@@ -51,8 +63,8 @@ export const excelTagSchema = z
 				value: data[headerLabels.requestId].value,
 				link: data[headerLabels.requestId].link,
 			},
-			informacionAdicional: data[headerLabels.additionalInfo],
-			modulo: data[headerLabels.module],
+			additionalInfo: data[headerLabels.additionalInfo],
+			module: data[headerLabels.module],
 			problemId: {
 				value: data[headerLabels.problemId].value,
 				link: data[headerLabels.problemId].link,
@@ -62,7 +74,7 @@ export const excelTagSchema = z
 				link: data[headerLabels.linkedRequestId].link,
 			},
 			jira: data[headerLabels.jira],
-			categorizacion: data[headerLabels.categorization],
+			categorization: data[headerLabels.categorization],
 			technician: data[headerLabels.technician],
 		};
 	});

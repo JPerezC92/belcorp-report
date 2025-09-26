@@ -1,4 +1,4 @@
-import type { TagResponseArrayDto } from "@app/core";
+import type { ForTaggingData, TagResponseArrayDto } from "@app/core";
 import { preloadApiKeys } from "./preloadApiKeys";
 
 export interface PreloadHandlers {
@@ -8,7 +8,15 @@ export interface PreloadHandlers {
 		fileName: string
 	) => Promise<unknown>;
 	openExternal: (url: string) => Promise<void>;
-	// Add other handlers here as needed
+	parseForTaggingDataExcel: (
+		fileBuffer: ArrayBuffer,
+		fileName: string
+	) => Promise<unknown>;
+	parseAndSaveForTaggingDataExcel: (
+		fileBuffer: ArrayBuffer,
+		fileName: string
+	) => Promise<unknown>;
+	getAllForTaggingData: () => Promise<ForTaggingData[]>;
 }
 
 export function getPreloadHandler<K extends keyof PreloadHandlers>(

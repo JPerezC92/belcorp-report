@@ -7,11 +7,42 @@ export const Route = createFileRoute("/tagging-v3")({
 	component: TaggingV3Component,
 });
 
+type ForTaggingData = {
+	technician: string;
+	requestId: string;
+	requestIdLink?: string;
+	createdTime: string;
+	module: string;
+	subject: string;
+	subjectLink?: string;
+	problemId: string;
+	problemIdLink?: string;
+	linkedRequestId: string;
+	linkedRequestIdLink?: string;
+	category: string;
+	importedAt?: string;
+	sourceFile?: string;
+};
+
 function TaggingV3Component() {
 	const [tags, setTags] = useState<TagResponseArrayDto>([]);
+	const [forTaggingData, setForTaggingData] = useState<ForTaggingData[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [activeTab, setActiveTab] = useState<"tag-data" | "for-tagging-data">(
+		"tag-data",
+	);
 	const [parseStatus, setParseStatus] = useState<{
+		loading: boolean;
+		error: string | null;
+		success: string | null;
+	}>({
+		loading: false,
+		error: null,
+		success: null,
+	});
+
+	const [forTaggingParseStatus, setForTaggingParseStatus] = useState<{
 		loading: boolean;
 		error: string | null;
 		success: string | null;
@@ -56,6 +87,45 @@ function TaggingV3Component() {
 		}
 	};
 
+	const handleForTaggingFileUpload = async (
+		event: React.ChangeEvent<HTMLInputElement>,
+	) => {
+		const file = event.target.files?.[0];
+		if (!file) return;
+
+		setForTaggingParseStatus({ loading: true, error: null, success: null });
+
+		try {
+			const parseAndSaveForTaggingDataExcel = getPreloadHandler(
+				"parseAndSaveForTaggingDataExcel",
+			);
+			if (!parseAndSaveForTaggingDataExcel) {
+				throw new Error(
+					"For tagging data upload function not available",
+				);
+			}
+			const fileBuffer = await file.arrayBuffer();
+			await parseAndSaveForTaggingDataExcel(fileBuffer, file.name);
+			setForTaggingParseStatus({
+				loading: false,
+				error: null,
+				success: `Successfully parsed and saved ${file.name}. Check console for details.`,
+			});
+			await loadForTaggingData();
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: "Unknown error occurred";
+			console.error("Error parsing for tagging file:", error);
+			setForTaggingParseStatus({
+				loading: false,
+				error: errorMessage,
+				success: null,
+			});
+		}
+	};
+
 	const loadTags = useCallback(async () => {
 		try {
 			setLoading(true);
@@ -80,6 +150,22 @@ function TaggingV3Component() {
 		}
 	}, []);
 
+	const loadForTaggingData = useCallback(async () => {
+		try {
+			const fetchAllForTaggingData = getPreloadHandler(
+				"getAllForTaggingData",
+			);
+			if (!fetchAllForTaggingData) {
+				throw new Error("ForTaggingData fetch function not available");
+			}
+			const result = await fetchAllForTaggingData();
+			setForTaggingData(result || []);
+		} catch (error) {
+			console.error("Error loading for tagging data:", error);
+			// Don't set error state for for tagging data, just log it
+		}
+	}, []);
+
 	const handleExternalLink = async (url: string) => {
 		try {
 			const openExternal = getPreloadHandler("openExternal");
@@ -93,7 +179,8 @@ function TaggingV3Component() {
 
 	useEffect(() => {
 		loadTags();
-	}, [loadTags]);
+		loadForTaggingData();
+	}, [loadTags, loadForTaggingData]);
 
 	if (loading) {
 		return (
@@ -187,8 +274,7 @@ function TaggingV3Component() {
 				<h1 className="text-3xl font-bold text-gray-800 mb-6">
 					Tagging v3
 				</h1>
-
-				{/* File Upload Section */}
+				{/* File Upload Section - Always Visible */}
 				<div className="bg-white rounded-lg shadow-md mb-6">
 					<div className="px-6 py-4 border-b border-gray-200">
 						<h2 className="text-xl font-semibold text-gray-800">
@@ -291,151 +377,532 @@ function TaggingV3Component() {
 						)}
 					</div>
 				</div>
-
+				{/* For Tagging Data Upload Section - Always Visible */}
 				<div className="bg-white rounded-lg shadow-md mb-6">
 					<div className="px-6 py-4 border-b border-gray-200">
 						<h2 className="text-xl font-semibold text-gray-800">
-							Tag Data ({tags.length} records)
+							Upload For Tagging Report
 						</h2>
 						<p className="text-gray-600">
-							Live data from tag_v2 database using clean
-							architecture
+							Upload an Excel file to parse and save for tagging
+							data
 						</p>
 					</div>
+					<div className="p-6">
+						<div className="mb-4">
+							<label
+								htmlFor="for-tagging-file-upload"
+								className="block text-sm font-medium text-gray-700 mb-2"
+							>
+								Select Excel File
+							</label>
+							<input
+								id="for-tagging-file-upload"
+								type="file"
+								accept=".xlsx,.xls"
+								onChange={handleForTaggingFileUpload}
+								disabled={forTaggingParseStatus.loading}
+								className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 disabled:opacity-50"
+							/>
+						</div>
 
-					<div className="overflow-x-auto">
-						<table className="min-w-full divide-y divide-gray-200">
-							<thead className="bg-gray-50">
-								<tr>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Created
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Request ID
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Additional Info
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Module
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Problem ID
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Linked Request
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Technician
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										Category
-									</th>
-									<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-										JIRA
-									</th>
-								</tr>
-							</thead>
-							<tbody className="bg-white divide-y divide-gray-200">
-								{tags.map((tag) => (
-									<tr
-										key={tag.id}
-										className="hover:bg-gray-50"
-									>
-										<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-											{tag.createdTime}
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap">
-											{tag.requestId.link ? (
-												<button
-													type="button"
-													onClick={() =>
-														handleExternalLink(
-															tag.requestId.link,
-														)
-													}
-													className="text-blue-600 hover:text-blue-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
-												>
-													{tag.requestId.value}
-												</button>
-											) : (
-												<span className="text-sm text-gray-900">
-													{tag.requestId.value}
-												</span>
-											)}
-										</td>
-										<td
-											className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate"
-											title={tag.informacionAdicional}
+						{forTaggingParseStatus.loading && (
+							<div className="flex items-center text-green-600 mb-4">
+								<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+								<span className="text-sm">
+									Parsing and saving file...
+								</span>
+							</div>
+						)}
+
+						{forTaggingParseStatus.error && (
+							<div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+								<div className="flex">
+									<div className="flex-shrink-0">
+										<svg
+											className="h-5 w-5 text-red-400"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+											role="img"
+											aria-labelledby="error-icon-title-2"
 										>
-											{tag.informacionAdicional}
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap">
-											<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-												{tag.modulo}
-											</span>
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap">
-											{tag.problemId.link ? (
-												<button
-													type="button"
-													onClick={() =>
-														handleExternalLink(
-															tag.problemId.link,
-														)
-													}
-													className="text-green-600 hover:text-green-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
-												>
-													{tag.problemId.value}
-												</button>
-											) : (
-												<span className="text-sm text-gray-900">
-													{tag.problemId.value}
-												</span>
-											)}
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap">
-											{tag.linkedRequestId.link ? (
-												<button
-													type="button"
-													onClick={() =>
-														handleExternalLink(
-															tag.linkedRequestId
-																.link,
-														)
-													}
-													className="text-purple-600 hover:text-purple-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
-												>
-													{tag.linkedRequestId.value}
-												</button>
-											) : (
-												<span className="text-sm text-gray-900">
-													{tag.linkedRequestId.value}
-												</span>
-											)}
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-											{tag.technician}
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap">
-											<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-												{tag.categorizacion}
-											</span>
-										</td>
-										<td className="px-6 py-4 whitespace-nowrap text-sm">
-											{tag.jira && (
-												<span className="text-purple-600 font-mono">
-													{tag.jira}
-												</span>
-											)}
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
+											<title id="error-icon-title-2">
+												Error icon
+											</title>
+											<path
+												fillRule="evenodd"
+												d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+												clipRule="evenodd"
+											/>
+										</svg>
+									</div>
+									<div className="ml-3">
+										<h3 className="text-sm font-medium text-red-800">
+											Parse Error
+										</h3>
+										<div className="mt-2 text-sm text-red-700">
+											{forTaggingParseStatus.error}
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
+
+						{forTaggingParseStatus.success && (
+							<div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+								<div className="flex">
+									<div className="flex-shrink-0">
+										<svg
+											className="h-5 w-5 text-green-400"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+											role="img"
+											aria-labelledby="success-icon-title-2"
+										>
+											<title id="success-icon-title-2">
+												Success icon
+											</title>
+											<path
+												fillRule="evenodd"
+												d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+												clipRule="evenodd"
+											/>
+										</svg>
+									</div>
+									<div className="ml-3">
+										<h3 className="text-sm font-medium text-green-800">
+											Success
+										</h3>
+										<div className="mt-2 text-sm text-green-700">
+											{forTaggingParseStatus.success}
+										</div>
+									</div>
+								</div>
+							</div>
+						)}
 					</div>
 				</div>
+				{/* Tab Navigation */}
+				<div className="mb-6">
+					<div className="border-b border-gray-200">
+						<nav className="-mb-px flex space-x-8">
+							<button
+								type="button"
+								onClick={() => setActiveTab("tag-data")}
+								className={`py-2 px-1 border-b-2 font-medium text-sm ${
+									activeTab === "tag-data"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								}`}
+							>
+								TAG Data
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("for-tagging-data")}
+								className={`py-2 px-1 border-b-2 font-medium text-sm ${
+									activeTab === "for-tagging-data"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								}`}
+							>
+								For Tagging Data
+							</button>
+						</nav>
+					</div>
+				</div>
+				{/* Tab Content */}
+				{activeTab === "tag-data" && (
+					<div className="space-y-6">
+						{/* Refresh Button */}
+						<div className="flex justify-end">
+							<button
+								type="button"
+								onClick={() => loadTags()}
+								disabled={loading}
+								className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+							>
+								{loading ? (
+									<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+								) : (
+									<svg
+										className="h-4 w-4"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-labelledby="refresh-icon"
+									>
+										<title id="refresh-icon">
+											Refresh icon
+										</title>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth={2}
+											d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+										/>
+									</svg>
+								)}
+								Refresh TAG Data
+							</button>
+						</div>
 
+						{/* Tag Data Section */}
+						<div className="bg-white rounded-lg shadow-md">
+							<div className="px-6 py-4 border-b border-gray-200">
+								<h2 className="text-xl font-semibold text-gray-800">
+									Tag Data ({tags.length} records)
+								</h2>
+								<p className="text-gray-600">
+									Live data from tag_v2 database using clean
+									architecture
+								</p>
+							</div>
+
+							<div className="overflow-x-auto">
+								<table className="min-w-full divide-y divide-gray-200">
+									<thead className="bg-gray-50">
+										<tr>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Created
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Request ID
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Additional Info
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Module
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Problem ID
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Linked Request
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Technician
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Category
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												JIRA
+											</th>
+										</tr>
+									</thead>
+									<tbody className="bg-white divide-y divide-gray-200">
+										{tags.map((tag) => (
+											<tr
+												key={tag.id}
+												className="hover:bg-gray-50"
+											>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+													{tag.createdTime}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{tag.requestId.link ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	tag
+																		.requestId
+																		.link,
+																)
+															}
+															className="text-blue-600 hover:text-blue-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{
+																tag.requestId
+																	.value
+															}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{
+																tag.requestId
+																	.value
+															}
+														</span>
+													)}
+												</td>
+												<td
+													className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate"
+													title={tag.additionalInfo}
+												>
+													{tag.additionalInfo}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+														{tag.module}
+													</span>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{tag.problemId.link ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	tag
+																		.problemId
+																		.link,
+																)
+															}
+															className="text-green-600 hover:text-green-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{
+																tag.problemId
+																	.value
+															}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{
+																tag.problemId
+																	.value
+															}
+														</span>
+													)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{tag.linkedRequestId
+														.link ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	tag
+																		.linkedRequestId
+																		.link,
+																)
+															}
+															className="text-purple-600 hover:text-purple-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{
+																tag
+																	.linkedRequestId
+																	.value
+															}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{
+																tag
+																	.linkedRequestId
+																	.value
+															}
+														</span>
+													)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+													{tag.technician}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+														{tag.categorization}
+													</span>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm">
+													{tag.jira && (
+														<span className="text-purple-600 font-mono">
+															{tag.jira}
+														</span>
+													)}
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{activeTab === "for-tagging-data" && (
+					<div className="space-y-6">
+						{/* Refresh Button */}
+						<div className="flex justify-end">
+							<button
+								type="button"
+								onClick={() => loadForTaggingData()}
+								disabled={false}
+								className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+							>
+								<svg
+									className="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-labelledby="refresh-icon-2"
+								>
+									<title id="refresh-icon-2">
+										Refresh icon
+									</title>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+									/>
+								</svg>
+								Refresh For Tagging Data
+							</button>
+						</div>
+
+						{/* ForTaggingData Section */}
+						<div className="bg-white rounded-lg shadow-md">
+							<div className="px-6 py-4 border-b border-gray-200">
+								<h2 className="text-xl font-semibold text-gray-800">
+									ForTaggingData ({forTaggingData.length}{" "}
+									records)
+								</h2>
+								<p className="text-gray-600">
+									Data from for tagging database
+								</p>
+							</div>
+
+							<div className="overflow-x-auto">
+								<table className="min-w-full divide-y divide-gray-200">
+									<thead className="bg-gray-50">
+										<tr>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Request ID
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Technician
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Created Time
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Modulo
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Subject
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Problem ID
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Linked Request
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Category
+											</th>
+										</tr>
+									</thead>
+									<tbody className="bg-white divide-y divide-gray-200">
+										{forTaggingData.map((data, index) => (
+											<tr
+												key={`${data.requestId}-${index}`}
+												className="hover:bg-gray-50"
+											>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{data.requestIdLink ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	data.requestIdLink as string,
+																)
+															}
+															className="text-blue-600 hover:text-blue-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{data.requestId}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{data.requestId}
+														</span>
+													)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+													{data.technician}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+													{data.createdTime}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+														{data.module}
+													</span>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{data.subjectLink ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	data.subjectLink as string,
+																)
+															}
+															className="text-green-600 hover:text-green-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{data.subject}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{data.subject}
+														</span>
+													)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{data.problemIdLink ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	data.problemIdLink as string,
+																)
+															}
+															className="text-purple-600 hover:text-purple-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{data.problemId}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{data.problemId}
+														</span>
+													)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{data.linkedRequestIdLink ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	data.linkedRequestIdLink as string,
+																)
+															}
+															className="text-orange-600 hover:text-orange-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{
+																data.linkedRequestId
+															}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{
+																data.linkedRequestId
+															}
+														</span>
+													)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+														{data.category}
+													</span>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				)}
 				{/* Additional Information Panel */}
 				<div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
 					<h3 className="text-lg font-medium text-blue-800 mb-3">

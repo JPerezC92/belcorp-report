@@ -7,8 +7,8 @@ export const tagResponseSchema = z.object({
 		value: z.string(),
 		link: z.string().optional(),
 	}),
-	informacionAdicional: z.string(),
-	modulo: z.string(),
+	additionalInfo: z.string(),
+	module: z.string(),
 	problemId: z.object({
 		value: z.string(),
 		link: z.string().optional(),
@@ -18,7 +18,7 @@ export const tagResponseSchema = z.object({
 		link: z.string().optional(),
 	}),
 	jira: z.string(),
-	categorizacion: z.string(),
+	categorization: z.string(),
 	technician: z.string(),
 });
 

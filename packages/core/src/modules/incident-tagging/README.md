@@ -1,56 +1,50 @@
-# Tag Report Parser
+# Incident Tagging Module
 
-This module provides a clean, domain-driven architecture for parsing Excel tag reports in the Belcorp Report application.
+This module provides a clean, domain-driven architecture for parsing Excel tag reports and managing incident tagging data in the Belcorp Report application.
 
 ## Architecture
 
-The parser follows clean architecture principles:
+The module follows clean architecture principles:
 
-- **Domain Layer**: Defines interfaces and business entities
-- **Application Layer**: Provides factory functions for creating parsers
-- **Infrastructure Layer**: Contains concrete implementations (Excel parser)
+- **Domain Layer**: Defines interfaces, business entities, and repository contracts
+- **Application Layer**: Contains use cases and service containers (TagService)
+- **Infrastructure Layer**: Contains concrete implementations (parsers, adapters, schemas, models)
 
 ## Usage
 
-### Basic Usage
+### Using TagService
 
 ```typescript
-import { createExcelTagReportParser } from "@app/core/modules/incident-tagging/application/tag-report-parser-factory";
+import { createTagService } from "@app/core";
 
-// Create a parser instance
-const parser = createExcelTagReportParser();
+const tagService = createTagService();
 
-// Parse an Excel file
-const result = await parser.parseExcel(fileBuffer, "report.xlsx");
+// Find all tags
+const tags = await tagService.findAllTags(tagRepository);
 
-if (result.success) {
-  console.log(`Parsed ${result.sheets[0].rows.length} rows`);
-  // Access parsed data
-  result.sheets[0].rows.forEach(row => {
-    console.log(`Request: ${row.requestId.value}, Technician: ${row.technician}`);
-  });
-} else {
-  console.error("Parse failed:", result.error);
-}
+// Parse tag report
+const result = await tagService.parseTagReport({
+  fileBuffer,
+  fileName: "report.xlsx",
+  repository: tagRepository
+});
 ```
 
-### Using the Factory with Type Parameter
+### Using Individual Use Cases
 
 ```typescript
-import { createTagReportParser } from "@app/core/modules/incident-tagging/application/tag-report-parser-factory";
+import { TagFinder, ProcessTagBatchCreator } from "@app/core";
 
-// Create parser with explicit type
-const parser = createTagReportParser('excel');
-```
+// Find tags with custom adapter
+const finder = new TagFinder({ tagRepository, adapter: customAdapter });
+const tags = await finder.execute();
 
-### Direct Import of Interfaces
-
-```typescript
-import type { 
-  TagReportParser, 
-  TagReportData, 
-  TagReportParseResult 
-} from "@app/core/modules/incident-tagging/domain/tag-report-parser";
+// Process tag batch
+const processor = new ProcessTagBatchCreator({
+  tagReportParser: new ExcelTagReportParser(),
+  tagRepository
+});
+const result = await processor.execute({ fileBuffer, fileName });
 ```
 
 ## Expected Excel Format
@@ -69,19 +63,26 @@ The parser expects an Excel file with a sheet named "ManageEngine Report Framewo
 
 ## Data Structure
 
-### TagReportData
+### Tag Entity
 
 ```typescript
-interface TagReportData {
-  createdTime: string;
-  requestId: { value: string; link: string; };
-  informacionAdicional: string;
-  modulo: string;
-  problemId: { value: string; link: string; };
-  linkedRequestId: { value: string; link: string; };
-  jira: string;
-  categorizacion: string;
-  technician: string;
+class Tag {
+  constructor(
+    public readonly requestId: string,
+    public readonly createdTime: string,
+    public readonly requestIdLink?: string,
+    public readonly informacionAdicional: string,
+    public readonly modulo: string,
+    public readonly problemId: string,
+    public readonly problemIdLink?: string,
+    public readonly linkedRequestId: string,
+    public readonly linkedRequestIdLink?: string,
+    public readonly jira: string,
+    public readonly categorizacion: string,
+    public readonly technician: string,
+    public readonly createdAt: Date,
+    public readonly updatedAt: Date
+  ) {}
 }
 ```
 
@@ -91,7 +92,7 @@ interface TagReportData {
 interface TagReportParseResult {
   success: boolean;
   fileName: string;
-  sheets: TagReportSheet[];
+  sheet: TagReportSheet;
   metadata: {
     creator?: string;
     modified?: Date;

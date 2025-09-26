@@ -1,9 +1,9 @@
-import { ProcessTagBatchCreator } from "./application/ProcessTagBatchCreator.js";
-import { TagFinder } from "./application/TagFinder.js";
-import type { TagRepository } from "./domain/tag.repository.js";
-import { tagDomainToResponse } from "./infrastructure/adapters/excelTagDtoToDomain.adapter.js";
-import type { TagResponseDto } from "./infrastructure/dtos/tag-response.dto.js";
-import { ExcelTagReportParser } from "./infrastructure/parsers/excel-tag-report-parser.js";
+import type { TagRepository } from "../domain/tag.repository.js";
+import { tagDomainToResponse } from "../infrastructure/adapters/excelTagDtoToDomain.adapter.js";
+import type { TagResponseDto } from "../infrastructure/dtos/tag-response.dto.js";
+import { ExcelTagReportParser } from "../infrastructure/parsers/excel-tag-report-parser.js";
+import { ProcessTagBatchCreator } from "./ProcessTagBatchCreator.js";
+import { TagFinder } from "./TagFinder.js";
 
 /**
  * Tag Service Container - Dependency Injection Container for Tag module

@@ -4,6 +4,7 @@
  */
 export const TABLE_NAMES = {
 	TAG: "tag",
+	FOR_TAGGING_DATA: "for_tagging_data",
 	MIGRATIONS: "_migrations",
 } as const;
 

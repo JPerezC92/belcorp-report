@@ -24,14 +24,14 @@ export class Tag {
 		public readonly requestId: string,
 		public readonly createdTime: string,
 		public readonly requestIdLink: string | undefined,
-		public readonly informacionAdicional: string,
-		public readonly modulo: string,
+		public readonly additionalInfo: string,
+		public readonly module: string,
 		public readonly problemId: string,
 		public readonly problemIdLink: string | undefined,
 		public readonly linkedRequestId: string,
 		public readonly linkedRequestIdLink: string | undefined,
 		public readonly jira: string,
-		public readonly categorizacion: string,
+		public readonly categorization: string,
 		public readonly technician: string,
 		public readonly createdAt: Date,
 		public readonly updatedAt: Date
@@ -41,14 +41,14 @@ export class Tag {
 		createdTime: string;
 		requestId: string;
 		requestIdLink?: string;
-		informacionAdicional: string;
-		modulo: string;
+		additionalInfo: string;
+		module: string;
 		problemId: string;
 		problemIdLink?: string;
 		linkedRequestId: string;
 		linkedRequestIdLink?: string;
 		jira: string;
-		categorizacion: string;
+		categorization: string;
 		technician: string;
 	}): Tag {
 		const now = new Date();
@@ -56,14 +56,14 @@ export class Tag {
 			data.requestId,
 			data.createdTime,
 			data.requestIdLink,
-			data.informacionAdicional,
-			data.modulo,
+			data.additionalInfo,
+			data.module,
 			data.problemId,
 			data.problemIdLink,
 			data.linkedRequestId,
 			data.linkedRequestIdLink,
 			data.jira,
-			data.categorizacion,
+			data.categorization,
 			data.technician,
 			now,
 			now
@@ -84,6 +84,6 @@ export class Tag {
 	}
 
 	getDisplayTitle(): string {
-		return `${this.requestId} - ${this.modulo}`;
+		return `${this.requestId} - ${this.module}`;
 	}
 }
