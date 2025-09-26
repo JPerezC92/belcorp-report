@@ -1,17 +1,29 @@
-Welcome to your new TanStack app! 
+Welcome to the Belcorp Report Renderer!
 
-# Getting Started
+# Belcorp Report - React UI
 
-To run this application:
+This package contains the React-based user interface for the Belcorp Report application, a desktop tool for processing and managing incident tagging reports from ManageEngine.
+
+## About This Package
+
+The renderer provides:
+- **Excel Import Interface**: Drag-and-drop Excel file upload with progress tracking
+- **Data Visualization**: Tables and views for managing incident tags
+- **Navigation**: TanStack Router-based navigation optimized for Electron
+- **Modern UI**: Tailwind CSS styling with responsive design
+
+## Getting Started
+
+To run this package in development:
 
 ```bash
 pnpm install
-pnpm start
+pnpm dev
 ```
 
-# Building For Production
+## Building For Production
 
-To build this application for production:
+To build this package for production:
 
 ```bash
 pnpm build
@@ -19,7 +31,7 @@ pnpm build
 
 ## Testing
 
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+This package uses [Vitest](https://vitest.dev/) for unit testing. You can run the tests with:
 
 ```bash
 pnpm test
