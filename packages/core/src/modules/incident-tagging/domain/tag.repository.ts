@@ -4,4 +4,5 @@ export interface TagRepository {
 	saveBatch(tags: Tag[]): Promise<void>;
 	getAll(): Promise<Tag[]>;
 	drop(): Promise<void>;
+	findByLinkedRequestId(linkedRequestId: string): Promise<Tag[]>;
 }

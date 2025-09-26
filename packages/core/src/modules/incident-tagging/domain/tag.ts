@@ -1,23 +1,3 @@
-// Value Objects
-export class LinkedValue {
-	constructor(
-		public readonly value: string,
-		public readonly link: string | undefined
-	) {}
-
-	static create(data: { value: string; link?: string }): LinkedValue {
-		return new LinkedValue(data.value, data.link);
-	}
-
-	toString(): string {
-		return this.value;
-	}
-
-	hasLink(): boolean {
-		return this.link !== undefined && this.link !== "";
-	}
-}
-
 // Domain Entity
 export class Tag {
 	constructor(

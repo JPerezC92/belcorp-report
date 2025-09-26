@@ -13,4 +13,7 @@ export const preloadApiKeys = {
 		"parseAndSaveForTaggingDataExcel"
 	) as keyof Window,
 	getAllForTaggingData: btoa("getAllForTaggingData") as keyof Window,
+	getEnrichedForTaggingData: btoa(
+		"getEnrichedForTaggingData"
+	) as keyof Window,
 };

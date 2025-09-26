@@ -1,66 +1,65 @@
-# Useful Information for Excel Parsing (from provided image)
+# New Feature: Enrich For Tagging Data with Additional Information
 
-1. **Headers**: The first row contains column headers: Technician, Request ID, Created Time, Modulo, Subject, Problem ID, Linked Request Id.
+## Overview
+For Tagging data records that lack additional information values but have a `linkedRequestId` should be enriched by searching Tag data for matching `linkedRequestId` and extracting all available additional information. The enriched data will be displayed in a new tab in the front-end UI.
 
-2. **Categories**: Category rows (e.g., "Error de Alcance", "Error de codificación (Bug)") are visually separated, likely with formatting (bold, background color). These rows do not contain data for other columns and act as section headers for the following data rows.
+## Requirements
+- Identify ForTaggingData records with missing additional information but present `linkedRequestId`
+- Query Tag data using `linkedRequestId` to find matching records
+- Extract all additional information from Tag records (e.g., requestIdLink, subjectLink, problemIdLink, linkedRequestIdLink, etc.)
+- Merge the extracted information into the ForTaggingData records
+- Provide an IPC handler to retrieve the enriched data
+- Create a new tab in the UI (tagging-v3 route) to display the enriched For Tagging data
+- Ensure the enriched data includes all possible additional information values
 
-3. **Data Rows**: Data rows appear below each category row and contain values for all columns. Each data row should be assigned the category from the most recent category row above it.
+## Implementation Plan
 
-4. **Column Mapping**: Each data row should be parsed into an object with fields matching the headers, plus an additional "Category" field.
+### 1. Create Enrichment Service
+- Implement `ForTaggingDataEnrichmentService` in `packages/core/src/modules/incident-tagging/application/`
+- Service should:
+  - Accept ForTaggingData records
+  - For each record with `linkedRequestId` but missing additional info, query Tag repository
+  - Extract and merge additional information from matching Tag records
+  - Return enriched ForTaggingData with all possible additional information
 
-5. **Empty/Non-data Rows**: Category rows and any empty rows should be skipped when extracting actual data.
+### 2. Update Core Exports
+- Add export for `ForTaggingDataEnrichmentService` in `packages/core/src/index.ts`
 
-6. **Sheet Name**: The sheet name is "ManageEngine Report Framework" (visible in the tab).
+### 3. Add IPC Handler for Enrichment
+- In `ForTaggingDataExcelModule`, add new IPC handler (e.g., `for-tagging-data:getEnriched`)
+- Handler should:
+  - Fetch all ForTaggingData records
+  - Use the enrichment service to enrich them
+  - Return the enriched data
 
-7. **Additional Notes**: The image highlights the need to add the identified category in a new column for each data row. The columns are well-defined and consistent across the sheet.
+### 4. Update Preload API
+- Expose the new IPC handler via preload script with base64-encoded key
+- Update `preloadApiKeys.ts` and `preloadHandlers.ts` if needed
 
-This information should be used to:
-- Detect and assign categories to each data row.
-- Map columns accurately.
-- Skip non-data rows.
-- Add a "Category" field to the parsed output.
-# Excel File Processing Todo List
+### 5. Create New UI Tab
+- In `packages/renderer/src/routes/tagging-v3.tsx`, add a new tab for "Enriched Data"
+- Tab should display the enriched For Tagging data in a table format
+- Show all columns including the additional information fields
+- Use existing UI patterns for consistency
 
-- Sheet name: "ManageEngine Report Framework" (only one sheet)
-- Note: Column A is empty; headers and data start at column B.
-- Column mapping (from image):
-	- Column B: Technician
-	- Column C: Request ID
-	- Column D: Created Time
-	- Column E: Modulo
-	- Column F: Subject
-	- Column G: Problem ID
-	- Column H: Linked Request Id
-- Categories: Rows like "Error de Alcance", "Error de codificación (Bug)" visually separate data sections
-- Data rows: Appear below category rows, must be assigned the current category
-- Add a "Category" column to each parsed data row
+### 6. Integrate with Existing UI
+- Ensure the new tab fits within the existing layout
+- Add navigation or button to trigger data fetching
+- Handle loading states and errors appropriately
 
+### 7. Testing
+- Add unit tests for the enrichment service
+- Test IPC handler functionality
+- Verify UI displays enriched data correctly
+- Ensure no regression in existing features
 
-## 2. Implement Excel file parser (Clean Architecture, ForTaggingData)
-- Place parsing logic in incident-tagging module:
-	- Service
-	- Parser
-	- Domain types
-- Main process module (IPC handler: 'for-tagging-data:parseExcel')
-- Expose secure API via preload script (contextBridge, base64-encoded keys)
-- Build UI in and integrate with routes
-- Extract headers, detect category rows, and parse data rows
-- Skip category and empty rows when extracting actual data
-- Map each data row to an object with all columns plus "Category"
-- Ensure code is modular, testable, and maintainable
+## Data Flow
+1. User accesses tagging-v3 route
+2. Front-end calls IPC handler to get enriched data
+3. Main process fetches ForTaggingData, enriches via service, returns result
+4. UI displays enriched data in new tab
 
-## 3. Add category identification logic
-- Detect category rows by formatting or text pattern (e.g., bold, background color, or specific text)
-- Track the current category and assign it to each subsequent data row until a new category row is found
-- Add the category value to a new column in the output
-
-## 4. Save parsed data to database
-- Create a new table for the parsed data, matching the columns and including "Category"
-- Implement logic to insert parsed rows into the new table
-- Follow project database conventions and clean architecture
-
-## 5. Prepare and visualize parsed data in v3 UI
-- Format parsed and categorized data for display in the v3 UI
-- Show parsed values in one tab and actual data in another tab
-- Ensure clear separation and usability in the UI
-- Use conventions from the existing Excel loading feature for consistency
+## Dependencies
+- Existing Tag and ForTaggingData repositories
+- Existing IPC infrastructure
+- Existing UI components and routing

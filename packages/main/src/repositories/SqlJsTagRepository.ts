@@ -77,4 +77,32 @@ export class SqlJsTagRepository implements TagRepository {
 	async drop(): Promise<void> {
 		query(`DELETE FROM ${TABLE_NAMES.TAG}`);
 	}
+
+	async findByLinkedRequestId(linkedRequestId: string): Promise<Tag[]> {
+		const results: QueryResult[] = query(
+			`SELECT * FROM ${TABLE_NAMES.TAG} WHERE linkedRequestIdValue = ?`,
+			[linkedRequestId]
+		);
+
+		// Map database columns (Spanish names) to schema fields (English names)
+		const mappedResults = results.map((row) => ({
+			requestId: row.requestId,
+			requestIdLink: row.requestIdLink,
+			createdTime: row.createdTime,
+			additionalInfo: row.informacionAdicional,
+			module: row.modulo,
+			problemId: row.problemId,
+			problemIdLink: row.problemIdLink,
+			linkedRequestIdValue: row.linkedRequestIdValue,
+			linkedRequestIdLink: row.linkedRequestIdLink,
+			jira: row.jira,
+			categorization: row.categorizacion,
+			technician: row.technician,
+			processedAt: row.processedAt,
+		}));
+
+		const tags = mappedResults.map((row) => tagDbSchema.parse(row));
+
+		return tags.map((data) => tagDbModelToDomain(data));
+	}
 }

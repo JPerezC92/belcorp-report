@@ -1,4 +1,10 @@
-import { type TagResponseArrayDto, tagResponseArraySchema } from "@app/core";
+import {
+	type EnrichedForTaggingData,
+	type EnrichmentResult,
+	type RequestIdWithLink,
+	type TagResponseArrayDto,
+	tagResponseArraySchema,
+} from "@app/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { getPreloadHandler } from "@/constants/preloadHandlers";
@@ -27,11 +33,20 @@ type ForTaggingData = {
 function TaggingV3Component() {
 	const [tags, setTags] = useState<TagResponseArrayDto>([]);
 	const [forTaggingData, setForTaggingData] = useState<ForTaggingData[]>([]);
+	const [enrichedForTaggingData, setEnrichedForTaggingData] = useState<
+		EnrichedForTaggingData[]
+	>([]);
+	const [additionalInfoToRequestIds, setAdditionalInfoToRequestIds] =
+		useState<Map<string, RequestIdWithLink[]>>(new Map());
+	const [selectedAdditionalInfo, setSelectedAdditionalInfo] = useState<{
+		info: string;
+		requestIds: RequestIdWithLink[];
+	} | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [activeTab, setActiveTab] = useState<"tag-data" | "for-tagging-data">(
-		"tag-data",
-	);
+	const [activeTab, setActiveTab] = useState<
+		"tag-data" | "for-tagging-data" | "enriched-data"
+	>("tag-data");
 	const [parseStatus, setParseStatus] = useState<{
 		loading: boolean;
 		error: string | null;
@@ -166,6 +181,28 @@ function TaggingV3Component() {
 		}
 	}, []);
 
+	const loadEnrichedForTaggingData = useCallback(async () => {
+		try {
+			const fetchEnrichedForTaggingData = getPreloadHandler(
+				"getEnrichedForTaggingData",
+			);
+			if (!fetchEnrichedForTaggingData) {
+				throw new Error(
+					"Enriched ForTaggingData fetch function not available",
+				);
+			}
+			const result: EnrichmentResult =
+				await fetchEnrichedForTaggingData();
+			setEnrichedForTaggingData(result.enrichedData || []);
+			setAdditionalInfoToRequestIds(
+				result.additionalInfoToRequestIds || new Map(),
+			);
+		} catch (error) {
+			console.error("Error loading enriched for tagging data:", error);
+			// Don't set error state for enriched for tagging data, just log it
+		}
+	}, []);
+
 	const handleExternalLink = async (url: string) => {
 		try {
 			const openExternal = getPreloadHandler("openExternal");
@@ -177,10 +214,25 @@ function TaggingV3Component() {
 		}
 	};
 
+	const handleAdditionalInfoClick = (info: string) => {
+		const requestIds = additionalInfoToRequestIds.get(info) || [];
+		setSelectedAdditionalInfo({ info, requestIds });
+	};
+
+	const handleCopyAdditionalInfo = async (info: string) => {
+		try {
+			await navigator.clipboard.writeText(info);
+			// Could add a toast notification here if desired
+		} catch (error) {
+			console.error("Failed to copy additional info:", error);
+		}
+	};
+
 	useEffect(() => {
 		loadTags();
 		loadForTaggingData();
-	}, [loadTags, loadForTaggingData]);
+		loadEnrichedForTaggingData();
+	}, [loadTags, loadForTaggingData, loadEnrichedForTaggingData]);
 
 	if (loading) {
 		return (
@@ -507,6 +559,17 @@ function TaggingV3Component() {
 								}`}
 							>
 								For Tagging Data
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("enriched-data")}
+								className={`py-2 px-1 border-b-2 font-medium text-sm ${
+									activeTab === "enriched-data"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								}`}
+							>
+								Enriched Data
 							</button>
 						</nav>
 					</div>
@@ -903,6 +966,290 @@ function TaggingV3Component() {
 						</div>
 					</div>
 				)}
+				{activeTab === "enriched-data" && (
+					<div className="space-y-6">
+						{/* Refresh Button */}
+						<div className="flex justify-end">
+							<button
+								type="button"
+								onClick={() => loadEnrichedForTaggingData()}
+								disabled={false}
+								className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+							>
+								<svg
+									className="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-labelledby="refresh-icon-3"
+								>
+									<title id="refresh-icon-3">
+										Refresh icon
+									</title>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+									/>
+								</svg>
+								Refresh Enriched Data
+							</button>
+						</div>
+
+						{/* Enriched ForTaggingData Section */}
+						<div className="bg-white rounded-lg shadow-md">
+							<div className="px-6 py-4 border-b border-gray-200">
+								<h2 className="text-xl font-semibold text-gray-800">
+									Enriched ForTaggingData (
+									{enrichedForTaggingData.length} records)
+								</h2>
+								<p className="text-gray-600">
+									Enriched data for tagging
+								</p>
+							</div>
+
+							<div className="overflow-x-auto">
+								<table className="min-w-full divide-y divide-gray-200">
+									<thead className="bg-gray-50">
+										<tr>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Request ID
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Technician
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Created Time
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Modulo
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Subject
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Problem ID
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Linked Request
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Category
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Additional Info
+											</th>
+										</tr>
+									</thead>
+									<tbody className="bg-white divide-y divide-gray-200">
+										{enrichedForTaggingData.map(
+											(data, index) => (
+												<tr
+													key={`${data.requestId}-${index}`}
+													className="hover:bg-gray-50"
+												>
+													<td className="px-6 py-4 whitespace-nowrap">
+														{data.requestIdLink ? (
+															<button
+																type="button"
+																onClick={() =>
+																	handleExternalLink(
+																		data.requestIdLink as string,
+																	)
+																}
+																className="text-blue-600 hover:text-blue-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+															>
+																{data.requestId}
+															</button>
+														) : (
+															<span className="text-sm text-gray-900">
+																{data.requestId}
+															</span>
+														)}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+														{data.technician}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+														{data.createdTime}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap">
+														<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+															{data.module}
+														</span>
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap">
+														{data.subjectLink ? (
+															<button
+																type="button"
+																onClick={() =>
+																	handleExternalLink(
+																		data.subjectLink as string,
+																	)
+																}
+																className="text-green-600 hover:text-green-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+															>
+																{data.subject}
+															</button>
+														) : (
+															<span className="text-sm text-gray-900">
+																{data.subject}
+															</span>
+														)}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap">
+														{data.problemIdLink ? (
+															<button
+																type="button"
+																onClick={() =>
+																	handleExternalLink(
+																		data.problemIdLink as string,
+																	)
+																}
+																className="text-purple-600 hover:text-purple-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+															>
+																{data.problemId}
+															</button>
+														) : (
+															<span className="text-sm text-gray-900">
+																{data.problemId}
+															</span>
+														)}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap">
+														{data.linkedRequestIdLink ? (
+															<button
+																type="button"
+																onClick={() =>
+																	handleExternalLink(
+																		data.linkedRequestIdLink as string,
+																	)
+																}
+																className="text-orange-600 hover:text-orange-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+															>
+																{
+																	data.linkedRequestId
+																}
+															</button>
+														) : (
+															<span className="text-sm text-gray-900">
+																{
+																	data.linkedRequestId
+																}
+															</span>
+														)}
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap">
+														<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+															{data.category}
+														</span>
+													</td>
+													<td className="px-6 py-4 whitespace-nowrap">
+														<div className="flex flex-wrap gap-1">
+															{data.additionalInfo
+																.length > 0 ? (
+																data.additionalInfo.map(
+																	(info) => (
+																		<div
+																			key={`${data.requestId}-info-${info}`}
+																			className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200"
+																		>
+																			<button
+																				type="button"
+																				onClick={() =>
+																					handleAdditionalInfoClick(
+																						info,
+																					)
+																				}
+																				onKeyDown={(
+																					e,
+																				) => {
+																					if (
+																						e.key ===
+																							"Enter" ||
+																						e.key ===
+																							" "
+																					) {
+																						handleAdditionalInfoClick(
+																							info,
+																						);
+																					}
+																				}}
+																				className="cursor-pointer border-none bg-transparent p-0 text-purple-800 hover:text-purple-900"
+																				title={`Click to see all Request IDs using "${info}"`}
+																			>
+																				{
+																					info
+																				}
+																			</button>
+																			<button
+																				type="button"
+																				onClick={(
+																					e,
+																				) => {
+																					e.stopPropagation();
+																					handleCopyAdditionalInfo(
+																						info,
+																					);
+																				}}
+																				onKeyDown={(
+																					e,
+																				) => {
+																					if (
+																						e.key ===
+																							"Enter" ||
+																						e.key ===
+																							" "
+																					) {
+																						e.stopPropagation();
+																						handleCopyAdditionalInfo(
+																							info,
+																						);
+																					}
+																				}}
+																				className="ml-1 p-0.5 rounded-sm hover:bg-purple-300 transition-colors border-none bg-transparent"
+																				title="Copy to clipboard"
+																			>
+																				<svg
+																					className="h-3 w-3 text-purple-600"
+																					fill="none"
+																					viewBox="0 0 24 24"
+																					stroke="currentColor"
+																					aria-labelledby="copy-icon"
+																				>
+																					<title id="copy-icon">
+																						Copy
+																					</title>
+																					<path
+																						strokeLinecap="round"
+																						strokeLinejoin="round"
+																						strokeWidth={
+																							2
+																						}
+																						d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+																					/>
+																				</svg>
+																			</button>
+																		</div>
+																	),
+																)
+															) : (
+																<span className="text-sm text-gray-400">
+																	-
+																</span>
+															)}
+														</div>
+													</td>
+												</tr>
+											),
+										)}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				)}
 				{/* Additional Information Panel */}
 				<div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
 					<h3 className="text-lg font-medium text-blue-800 mb-3">
@@ -941,6 +1288,105 @@ function TaggingV3Component() {
 						</div>
 					</div>
 				</div>
+
+				{/* Additional Info Details Modal */}
+				{selectedAdditionalInfo && (
+					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+						<div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+							<div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+								<h3 className="text-lg font-semibold text-gray-800">
+									Request IDs using "
+									{selectedAdditionalInfo.info}"
+								</h3>
+								<button
+									type="button"
+									onClick={() =>
+										setSelectedAdditionalInfo(null)
+									}
+									className="text-gray-400 hover:text-gray-600"
+								>
+									<svg
+										className="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-labelledby="close-modal"
+									>
+										<title id="close-modal">
+											Close modal
+										</title>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth={2}
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+								</button>
+							</div>
+							<div className="px-6 py-4 max-h-96 overflow-y-auto">
+								<p className="text-sm text-gray-600 mb-4">
+									This additional info is used by{" "}
+									{selectedAdditionalInfo.requestIds.length}{" "}
+									request(s):
+								</p>
+								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+									{selectedAdditionalInfo.requestIds.map(
+										(requestIdWithLink) => (
+											<div
+												key={
+													requestIdWithLink.requestId
+												}
+												className="bg-blue-50 border border-blue-200 rounded-md px-3 py-2 text-sm text-blue-800 font-mono"
+											>
+												{requestIdWithLink.link ? (
+													<a
+														href={
+															requestIdWithLink.link
+														}
+														target="_blank"
+														rel="noopener noreferrer"
+														className="text-blue-600 hover:text-blue-800 underline"
+														onClick={(e) => {
+															e.preventDefault();
+															handleExternalLink(
+																requestIdWithLink.link as string,
+															);
+														}}
+													>
+														{
+															requestIdWithLink.requestId
+														}
+													</a>
+												) : (
+													requestIdWithLink.requestId
+												)}
+											</div>
+										),
+									)}
+								</div>
+								{selectedAdditionalInfo.requestIds.length ===
+									0 && (
+									<p className="text-sm text-gray-500 italic">
+										No request IDs found for this additional
+										info.
+									</p>
+								)}
+							</div>
+							<div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+								<button
+									type="button"
+									onClick={() =>
+										setSelectedAdditionalInfo(null)
+									}
+									className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+								>
+									Close
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);

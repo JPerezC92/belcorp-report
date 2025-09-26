@@ -37,6 +37,10 @@ async function getAllForTaggingData() {
 	return ipcRenderer.invoke("for-tagging-data:getAll");
 }
 
+async function getEnrichedForTaggingData() {
+	return ipcRenderer.invoke("for-tagging-data:getEnriched");
+}
+
 // Tag data operations
 async function getAllTags() {
 	return ipcRenderer.invoke("tag-data:getAll");
@@ -53,6 +57,7 @@ export {
 	parseForTaggingDataExcel,
 	parseAndSaveForTaggingDataExcel,
 	getAllForTaggingData,
+	getEnrichedForTaggingData,
 	openExternal,
 	send,
 	sha256sum,

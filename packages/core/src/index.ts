@@ -1,5 +1,6 @@
 // Incident Tagging Module Exports
 
+export * from "./modules/incident-tagging/application/ForTaggingDataEnrichmentService.js";
 export * from "./modules/incident-tagging/application/ForTaggingDataExcelService.js";
 export * from "./modules/incident-tagging/application/TagService.js";
 export * from "./modules/incident-tagging/domain/for-tagging-data-excel-parser.js";
