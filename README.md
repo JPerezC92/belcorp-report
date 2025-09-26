@@ -9,188 +9,157 @@
 ![IMG_0875](https://github.com/user-attachments/assets/590de304-e2c4-4935-9814-c18ade52fd8e)
 
 
-# Vite Electron Builder Boilerplate
+# Belcorp Report
 
-![GitHub last commit](https://img.shields.io/github/last-commit/cawa-93/vite-electron-builder?label=last%20update)
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/electron) 
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/electron-builder)
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/vite?filename=packages%2Fmain%2Fpackage.json)
-![GitHub package.json dev/peer/optional dependency version](https://img.shields.io/github/package-json/dependency-version/cawa-93/vite-electron-builder/dev/playwright)
+![IMG_0875](https://github.com/user-attachments/assets/590de304-e2c4-4935-9814-c18ade52fd8e)
 
-This is a template for secure electron applications. Written following the latest safety requirements, recommendations
-and best practices.
+A secure Electron desktop application for processing and managing Belcorp incident tagging reports. Built with modern web technologies and following Electron security best practices.
 
-## Get started
+## About This Project
 
-Follow these steps to get started with the template:
+This application provides a comprehensive solution for Belcorp's incident management workflow, featuring:
 
-1. Click the **[Use this template](https://github.com/cawa-93/vite-electron-builder/generate)** button (you must be logged in) or just clone this repo.
+- **Excel Report Processing**: Parse and validate incident tagging data from ManageEngine reports
+- **Data Management**: Store and manage incident tags with SQLite database integration
+- **Modern UI**: React-based interface with TanStack Router for seamless navigation
+- **Security First**: Electron application with context isolation and secure IPC communication
+- **Domain-Driven Design**: Clean architecture with clear separation of concerns
+
+> [!Important]
+> This project is maintained by developer from Ukraine 🇺🇦
+> 
+> I do my best, but due to Russia's ongoing full-scale invasion of Ukraine, I barely have the energy to support open source projects.
+> 
+> If my work has been useful to you, please consider [supporting Ukraine](https://stand-with-ukraine.pp.ua/) or [me personally](https://send.monobank.ua/6SmojkkR9i). Even your **$1** has an impact!
+
+## Get Started
+
+Follow these steps to get started with the Belcorp Report application:
+
+1. Clone this repository
 2. Make sure you have [pnpm](https://pnpm.io/) installed globally:
    - `npm install -g pnpm` (if you have npm)
    - `corepack enable` (if you have Node.js 16.13+)
    - Or download from [pnpm.io/installation](https://pnpm.io/installation)
-3. Go to project folder and run `pnpm run init`.
-4. Start application in development mode by `pnpm start`.
-5. Compile executable by `pnpm run compile`.
- 
-That's all you need. 😉
+3. Install dependencies: `pnpm install`
+4. Start application in development mode: `pnpm start`
+5. Compile executable for production: `pnpm run compile`
+
+That's all you need to run the Belcorp Report application! 🚀
 
 > [!TIP]
-> You can explore the demo application for various frameworks and operating systems in the [Deployment](https://github.com/cawa-93/vite-electron-builder/deployments) section.
-> This will allow you to see how the application performs across different environments.
-> Additionally, you can verify the auto-update functionality by installing an outdated version of the application.
-
-❤️ **If you like this template, give a ⭐ or [send support](https://www.buymeacoffee.com/kozack/)!**
+> The application includes comprehensive Excel processing capabilities for incident tagging reports and a modern React interface for data management.
 
 ## Features
 
-### Lightweight
-When designing this template, I tried to keep it minimal, using the platform's native features to the maximum and minimizing the number of third-party dependencies.
+### Excel Report Processing
+- **ManageEngine Integration**: Parse incident tagging reports from ManageEngine Report Framework
+- **Data Validation**: Robust validation of Excel headers and row data using Zod schemas
+- **Error Handling**: Comprehensive error reporting for malformed or invalid data
+- **Batch Processing**: Efficient processing of large Excel files with progress tracking
 
-### Electron + TanStack Router Configuration
+### Data Management
+- **SQLite Database**: Local SQLite database for persistent data storage
+- **Domain-Driven Design**: Clean architecture with clear separation between domain, application, and infrastructure layers
+- **Repository Pattern**: Abstract data access layer for flexible storage implementations
+- **Type Safety**: Full TypeScript support with strict type definitions
 
-This project includes a fully configured **TanStack Router** setup optimized for Electron applications. This configuration solves common routing issues that occur when running React routers in Electron's `file://` protocol environment.
+### Modern Desktop Application
+- **Electron Security**: Context isolation, secure IPC communication, and origin restrictions
+- **React UI**: Modern React interface with TanStack Router for seamless navigation
+- **Hash History**: Electron-compatible routing using hash-based navigation
+- **Hot Reload**: Development server with hot module replacement for rapid development
 
-#### Key Configuration Details
+### Architecture & Quality
+- **Monorepo Structure**: Organized packages for main process, renderer, preload, and core business logic
+- **Modular Design**: Plugin-based architecture with configurable modules
+- **Testing**: E2E tests with Playwright for Electron applications
+- **Code Quality**: Biome for linting and formatting, TypeScript for type safety
 
-**Hash History for Electron Compatibility:**
-```typescript
-// packages/renderer/src/main.tsx
-import { RouterProvider, createRouter, createHashHistory } from '@tanstack/react-router'
+## Incident Tagging Workflow
 
-// Create hash history for Electron compatibility (works with file:// protocol)
-const hashHistory = createHashHistory()
+The Belcorp Report application streamlines the incident management process through automated Excel report processing and data validation.
 
-const router = createRouter({
-  routeTree,
-  history: hashHistory,  // ← Critical for Electron apps
-  context: {},
-  defaultPreload: false,
-  defaultPreloadStaleTime: 0,
-})
-```
+### Data Processing Pipeline
 
-**Vite Router Plugin Configuration:**
-```typescript
-// packages/renderer/vite.config.ts
-import vitePlugin from '@tanstack/router-plugin/vite'
+1. **Excel Import**: Users import ManageEngine Report Framework Excel files containing incident data
+2. **Header Validation**: The application validates that all required columns are present:
+   - Created Time, Request ID, Información Adicional, Modulo
+   - Problem ID, Linked Request Id, Jira, Categorización, Technician
+3. **Row Processing**: Each row is parsed and validated using Zod schemas
+4. **Data Storage**: Validated incident tags are stored in the local SQLite database
+5. **Error Reporting**: Invalid rows are reported with detailed error messages
 
-export default defineConfig({
-  plugins: [
-    vitePlugin({ 
-      autoCodeSplitting: true,
-      routesDirectory: './src/routes',
-      generatedRouteTree: './src/routeTree.gen.ts'
-    }),
-    // ... other plugins
-  ],
-})
-```
+### Expected Excel Format
 
-#### Why Hash History?
+The application expects Excel files with a sheet named "ManageEngine Report Framework" containing incident tagging data with hyperlinks for Request IDs and Problem IDs.
 
-**The Problem:** Electron applications run on the `file://` protocol, which doesn't support browser history's `pushState` API. This causes routing failures with traditional browser history.
+### Data Integrity
 
-**The Solution:** Hash history (`/#/route`) works entirely client-side and is compatible with any protocol, making it perfect for Electron desktop applications.
+- **Type Safety**: Full TypeScript implementation with strict type checking
+- **Schema Validation**: Zod schemas ensure data consistency and prevent invalid entries
+- **Transaction Safety**: Database operations use transactions to maintain data integrity
+- **Audit Trail**: All changes are timestamped with creation and update dates
 
-#### Error Handling & Fallbacks
+### Testing & Quality Assurance
 
-The router setup includes robust error handling:
-
-```typescript
-try {
-  const root = ReactDOM.createRoot(rootElement)
-  root.render(<RouterProvider router={router} />)
-  console.log('TanStack Router rendered successfully')
-} catch (error) {
-  console.error('Router setup failed:', error)
-  // Fallback to HTML content if React/Router fails
-  rootElement.innerHTML = `<!-- Fallback content -->`
-}
-```
-
-#### Development vs Production
-
-- **Development (`pnpm start`)**: Router works with hot reload and dev tools
-- **Production (`pnpm run compile`)**: Router compiles to ~293KB bundle with full functionality
-- **Both environments**: Use identical hash-based routing for consistency
-
-#### Troubleshooting
-
-If you encounter routing issues:
-
-1. **Blank Screen**: Check browser console for React errors
-2. **"Not Found" Pages**: Ensure you're using `createHashHistory()`
-3. **Route Generation**: Verify `routeTree.gen.ts` is being generated
-4. **Windows Build Issues**: Code signing is disabled for development in `electron-builder.mjs`
-
-#### File Structure
-
-```
-packages/renderer/src/
-├── routes/
-│   ├── __root.tsx      # Root layout component
-│   └── index.tsx       # Home route (/)
-├── main.tsx            # Router setup and app entry
-└── routeTree.gen.ts    # Auto-generated route tree
-```
-
-### Electron
-
-- This template uses the latest electron version with all the latest security patches.
-- The architecture of the application is built according to the security [guides](https://www.electronjs.org/docs/tutorial/security) and best practices.
-- The latest version of the [electron-builder] is used to package the application.
-
-### Automatic tests
-
-- End-to-end are placed in the root [`tests`](tests) directory and use [playwright].
-- You may write any unit tests inside each package and use whatever you ~~want~~ need.
+- **E2E Tests**: Playwright tests ensure the complete Excel import and data processing workflow
+- **Type Checking**: Comprehensive TypeScript coverage across all packages
+- **Code Quality**: Biome enforces consistent code style and catches potential issues
 
 ### Continuous Integration
 
-- The configured workflow will check the types for each push and PR.
-- Code signing supported. See [code-signing documentation](https://www.electron.build/code-signing.html).
-
-### Auto-update
-
-Each time you push changes to the `main` branch,
-the [`ci`](.github/workflows/ci.yml) workflow starts to create and deploy a new application version with then will be downloaded and applied by each app instance.
+- Automated type checking on every push and pull request
+- Code signing support for secure distribution
+- GitHub Actions workflow for automated builds and releases
 
 ## Project Structure
 
-The project is designed as monorepo where each part of the application is an independent package.
-Each package could have own tech stack, tests, dependencies, frameworks, etc.
-All internal names are prefixed by `@app/*`.
-There are no technical reasons for this.
-It's just for you to make it easier to understand the architecture.
+The Belcorp Report application is organized as a monorepo with clear separation of concerns across multiple packages. Each package has its own tech stack, dependencies, and build configuration.
 
-Initially, the repository contains only a few packages.4
+### Core Packages
 
-### Packages with building tools:
+- [`packages/core`](packages/core) - Business logic and domain models for incident tagging
+  - **Domain Layer**: Entities, interfaces, and business rules
+  - **Application Layer**: Use cases and service orchestration
+  - **Infrastructure Layer**: Concrete implementations (parsers, repositories, schemas)
 
-- [`packages/integrate-renderer`](packages/integrate-renderer) - A helper package that is not included in the runtime.
-  It is used in `pnpm run init` to configure a new interface package.
-- [`packages/electron-versions`](packages/electron-versions) - A set of helper functions to get the versions of internal components bundled within Electron.
+- [`packages/database`](packages/database) - SQLite database management and migrations
+  - Database initialization and schema management
+  - Migration system for database versioning
+  - Connection pooling and query optimization
 
-### Packages with app logic:
+### Electron Architecture Packages
 
-- [`packages/main`](packages/main) - Implementation of Electron's [**main script**](https://www.electronjs.org/docs/tutorial/quick-start#create-the-main-script-file).
-- [`packages/preload`](packages/preload) - Implementation of Electron's [**preload scripts**](https://www.electronjs.org/docs/latest/tutorial/tutorial-preload).
+- [`packages/main`](packages/main) - Electron main process implementation
+  - **Module System**: Plugin-based architecture with `ModuleRunner`
+  - **Security Modules**: Origin restrictions, IPC security, auto-updates
+  - **Window Management**: Browser window lifecycle and configuration
+  - **Database Integration**: SQLite database modules and repositories
 
-### Renderer is not included
+- [`packages/preload`](packages/preload) - Secure bridge between main and renderer processes
+  - Context isolation with `contextBridge.exposeInMainWorld()`
+  - Base64-encoded function names for security
+  - Node.js API exposure to renderer (file system, crypto, etc.)
 
-As you may have noticed, the repository does **not** contain a package that implements the application interface.
-The reason is that since the entire application is a mono-repository,
-you can use any web application based on any framework or bundler as a package for the interface.
+- [`packages/renderer`](packages/renderer) - React-based user interface
+  - **TanStack Router**: File-based routing with hash history for Electron
+  - **Components**: Excel import UI, data visualization, navigation
+  - **State Management**: React hooks and context for local state
+  - **Styling**: Tailwind CSS for modern, responsive design
 
-There is only one requirement: the template expects to import renderer by `@app/renderer` name.
+### Development & Build Tools
 
-> [!TIP]
-> You can create new renderer package in interactive mode by `pnpm run init`.
+- [`packages/integrate-renderer`](packages/integrate-renderer) - Build tool for creating new renderer packages
+- [`packages/electron-versions`](packages/electron-versions) - Helper utilities for Electron version management
+- [`packages/dev-mode.js`](packages/dev-mode.js) - Development server orchestration
+- [`packages/entry-point.mjs`](packages/entry-point.mjs) - Application entry point configuration
 
-> [!NOTE]
-> If you are using a bundler other than vite,
-> you may need to slightly change the [dev-mode.js](packages/dev-mode.js) script to run it correctly.
+### Testing & Quality
+
+- [`tests/`](tests) - End-to-end tests using Playwright with Electron integration
+- [`biome.json`](biome.json) - Code linting and formatting configuration
+- [`vitest.config.ts`](packages/renderer/vitest.config.ts) - Unit testing configuration
 
 ## How It works
 
@@ -343,58 +312,55 @@ will not.
 ```sh
 pnpm start
 ```
-Start application in development more with hot-reload.
+Start the Belcorp Report application in development mode with hot-reload.
+
+---
+```sh
+pnpm run dev:libs
+```
+Start development mode for core business logic and database packages in watch mode.
+
+---
+```sh
+pnpm run dev:full
+```
+Start both the library development servers and the full application simultaneously.
 
 ---
 ```sh
 pnpm run build
 ```
-Runs the `build` command in all workspaces if present.
+Build all packages for production deployment.
 
 ---
 ```sh
 pnpm run compile
 ```
-First runs the `build` script,
-then compiles the project into executable using `electron-builder` with the specified configuration.
+Build all packages and create a distributable Electron executable using electron-builder.
 
 ---
 ```sh
 pnpm run compile -- --dir -c.asar=false
 ```
-Same as `pnpm run compile` but pass to `electron-builder` additional parameters to disable asar archive and installer
-creating.
-Useful for debugging compiled application.
+Same as `pnpm run compile` but creates an unpacked build without ASAR archive (useful for debugging).
 
 ---
 ```sh
 pnpm run test
 ```
-Executes end-to-end tests on **compiled app** using Playwright.
+Run end-to-end tests on the compiled application using Playwright.
 
 ---
 ```sh
 pnpm run typecheck
 ```
-Runs the `typecheck` command in all workspaces if present.
+Run TypeScript type checking across all packages.
 
 ---
 ```sh
-pnpm run create-renderer
+pnpm run clean
 ```
-Initializes a new Vite project named `renderer`. Basically same as `pnpm create vite`.
-
----
-```sh
-pnpm run integrate-renderer
-```
-Starts the integration process of the renderer using the Vite Electron builder.
-
----
-```sh
-pnpm run init
-```
-Set up the initial environment by creating a new renderer, integrating it, and installing the necessary packages.
+Clean build artifacts and temporary files from all packages.
 
 ## Troubleshooting Common Issues
 
@@ -437,6 +403,20 @@ Set up the initial environment by creating a new renderer, integrating it, and i
 **Problem: Port conflicts (5173 already in use)**
 - **Cause**: Previous dev server still running
 - **Solution**: Kill Node.js processes: `Stop-Process -Name "node" -Force`
+
+### Excel Processing Issues
+
+**Problem: "Sheet 'ManageEngine Report Framework' not found"**
+- **Cause**: Excel file doesn't contain the expected sheet name
+- **Solution**: Ensure the Excel file has a sheet named exactly "ManageEngine Report Framework"
+
+**Problem: "Missing required columns" error**
+- **Cause**: Excel file is missing expected column headers
+- **Solution**: Verify the Excel file contains all required columns: Created Time, Request ID, Información Adicional, Modulo, Problem ID, Linked Request Id, Jira, Categorización, Technician
+
+**Problem: Database connection errors**
+- **Cause**: SQLite database file permissions or corruption
+- **Solution**: Delete the database file and restart the application to recreate it
 
 ### Bundle Size and Performance
 

@@ -2,158 +2,157 @@
 
 ## Project Architecture
 
-This is a **monorepo Electron application** built with Vite, React, TanStack Router, and TypeScript. The architecture follows Electron security best practices with clear separation between main process, preload scripts, and renderer process.
+This is a **monorepo Electron application** for processing Belcorp incident tagging reports. Built with Vite, React, TanStack Router, and TypeScript using **domain-driven design** with clean architecture principles.
 
 ### Core Package Structure
-- **`packages/main/`** - Electron main process (Node.js environment)
-- **`packages/preload/`** - Secure bridge between main and renderer 
-- **`packages/renderer/`** - React UI (browser environment) with TanStack Router
-- **`packages/integrate-renderer/`** - Build tool for creating new renderer packages
-- **`packages/electron-versions/`** - Helper utilities for Electron version management
+- **`packages/core/`** - Business logic with domain-driven design (entities, services, repositories)
+- **`packages/database/`** - SQL.js database layer with migrations and persistence
+- **`packages/main/`** - Electron main process with modular architecture
+- **`packages/preload/`** - Secure IPC bridge with base64-encoded API exposure
+- **`packages/renderer/`** - React UI with TanStack Router (hash history for Electron)
 
-### Module System Architecture
+### Domain-Driven Architecture
 
-The main process uses a **modular architecture** via `ModuleRunner` (`packages/main/src/ModuleRunner.ts`):
+**Clean Architecture Pattern** in `packages/core/src/modules/incident-tagging/`:
+```
+domain/           # Business entities and rules
+├── tag.ts                    # Tag entity with factory method
+├── tag.repository.ts         # Repository interface contracts
+└── tag-report-parser.ts      # Domain services
 
+application/     # Use cases and application services
+├── TagService.ts             # Main service orchestrating domain operations
+└── ForTaggingDataExcelService.ts
+
+infrastructure/  # External concerns (DB, Excel parsing, APIs)
+├── parsers/                 # Excel parsing implementations
+├── repositories/            # Repository implementations
+├── adapters/                # Data transformation adapters
+└── schemas/                 # Zod validation schemas
+```
+
+**Key Pattern**: Services inject repository interfaces, not implementations. Always use dependency injection.
+
+### Critical Communication Patterns
+
+**IPC Channels** (main ↔ renderer via preload):
+```typescript
+// Preload exposes functions with base64 encoding for security
+contextBridge.exposeInMainWorld(btoa("parseTagReport"), parseTagReport);
+
+// Renderer accesses via centralized keys
+const result = await window[preloadApiKeys.parseTagReport](buffer, filename);
+```
+
+**Module System** in main process:
 ```typescript
 const moduleRunner = createModuleRunner()
-  .init(createWindowManagerModule({initConfig, openDevTools: true}))
-  .init(disallowMultipleAppInstance())
-  .init(terminateAppOnLastWindowClose())
-  .init(hardwareAccelerationMode({enable: false}))
-  .init(autoUpdater())
-  .init(allowInternalOrigins(new Set([...])))
-  .init(allowExternalUrls(new Set([...])))
+  .init(createDatabaseModule())      // Always first - provides DB
+  .init(createTagDataModule())       // IPC handlers for tag operations
+  .init(createForTaggingDataExcelModule()) // Excel processing handlers
 ```
 
-Each module in `packages/main/src/modules/` implements the `AppModule` interface and handles specific functionality (security, window management, auto-updates, etc.).
+### Excel Processing Workflow
 
-## Critical Routing Configuration
+**Expected Format**: ManageEngine reports with sheet "ManageEngine Report Framework"
+**Validation**: Zod schemas + header validation + row processing
+**Error Handling**: Structured error responses, never throw exceptions to renderer
 
-**TanStack Router uses hash history for Electron compatibility** (required for `file://` protocol):
+**Data Flow**:
+1. Renderer sends `ArrayBuffer` + filename via IPC
+2. Main process validates Excel structure and headers
+3. Domain services parse rows using adapters and schemas
+4. Repository saves to SQL.js database with transactions
+5. Structured result returned (success/error with details)
 
+### Database Layer
+
+**SQL.js with Custom Manager** (`packages/database/`):
 ```typescript
-// packages/renderer/src/main.tsx
-import { createHashHistory } from '@tanstack/react-router'
-const hashHistory = createHashHistory() // Critical for Electron apps
-
-const router = createRouter({
-  routeTree,
-  history: hashHistory, // NOT browser history
-  context: {},
-  defaultPreload: false,
-  defaultPreloadStaleTime: 0,
-})
+const config: DatabaseManagerConfig = {
+  path: `${app.getPath("userData")}/app-database.db`,
+  autoSave: true,
+  autoSaveInterval: 30000,
+  enableTransactions: true,
+  backupOnMigration: true
+};
 ```
 
-Routes are file-based in `packages/renderer/src/routes/` with auto-generation via `@tanstack/router-plugin/vite`.
+**Migration Pattern**: Versioned SQL files in `packages/database/src/migrations/`
 
-## Development Workflow
+### Development Workflow
 
-### Essential Commands
-- **`pnpm start`** - Start development with hot reload (launches dev-mode.js)
-- **`pnpm run build`** - Build all packages for production
-- **`pnpm run compile`** - Create distributable Electron app
-- **`pnpm test`** - Run Playwright e2e tests
-- **`pnpm run init`** - Interactive setup for new renderer packages
+**Multi-Stage Development**:
+```bash
+# Watch core/database packages only
+pnpm run dev:libs
 
-### Development Server Architecture
-The `packages/dev-mode.js` orchestrates development:
-1. Starts Vite dev server for renderer (port 3000)
-2. Builds and watches main/preload packages
-3. Enables hot reload for main process via `handleHotReload()` plugin
-4. Provides renderer dev server to other packages via plugin API
+# Full development (libs + electron app)
+pnpm run dev:full
 
-### Hot Reload Mechanism
-- **Renderer**: Standard Vite HMR
-- **Main Process**: Custom plugin in `packages/main/vite.config.js` restarts Electron on file changes
-- **Preload**: Rebuilds automatically, requires renderer refresh
-
-## Security Model
-
-### Context Isolation & Preload
-The preload script (`packages/preload/src/exposed.ts`) safely exposes functions via `contextBridge`:
-
-```typescript
-// Exposes functions with base64-encoded names for security
-for (const exportsKey in exports) {
-  if (isExport(exportsKey)) {
-    contextBridge.exposeInMainWorld(btoa(exportsKey), exports[exportsKey]);
-  }
-}
+# Production build
+pnpm run build && pnpm run compile
 ```
 
-### Origin Restrictions
-Security modules in main process control allowed origins:
-- `allowInternalOrigins()` - Whitelists dev server and app origins
-- `allowExternalUrls()` - Controls external link access
-- `BlockNotAllowdOrigins` module handles enforcement
+**Hot Reload**: Renderer HMR, main process restarts via custom Vite plugin
 
-## Build System Specifics
+### Security Model
 
-### Package Dependencies
-Uses **workspace references** (`@app/*`) for internal packages:
-```json
-// Root package.json
-"dependencies": {
-  "@app/main": "*",
-  "@app/preload": "*", 
-  "@app/renderer": "*"
-}
-```
+**Context Isolation**: Preload scripts run in browser context but can't access Node.js
+**Origin Restrictions**: `allowInternalOrigins()` + `allowExternalUrls()` modules
+**API Exposure**: Base64-encoded function names prevent direct access
 
-### Vite Configuration Patterns
-- **Main**: SSR build targeting Node.js with custom hot reload plugin
-- **Renderer**: Standard React build with base path `./` for Electron
-- **Preload**: Similar to main but without hot reload
+### Key Conventions
 
-### Electron Builder
-Configuration in `electron-builder.mjs` includes:
-- Workspace file filtering to include only dist folders
-- Disabled code signing for development (`forceCodeSigning: false`)
-- Auto-updater support with artifact naming conventions
+**File Extensions**: `.ts`/`.tsx` for TypeScript, `.js` for ESM modules
+**Imports**: Relative within packages, `@app/*` between packages
+**Error Handling**: Domain services return structured results, never throw
+**Validation**: Zod schemas for all external data (Excel rows, IPC messages)
+**Repository Pattern**: Interfaces in domain, implementations in infrastructure
 
-## Testing Architecture
+### Adding Features
 
-### E2E Tests (`tests/e2e.spec.ts`)
-- Uses **Playwright with Electron** integration
-- Launches compiled app from `dist/` directory
-- Tests real Electron behavior, not just web components
-- Fixture pattern for ElectronApplication lifecycle
+**New Domain Logic**:
+1. Add entity to `packages/core/src/modules/incident-tagging/domain/`
+2. Create repository interface and service
+3. Implement infrastructure adapters and repositories
+4. Add IPC handler in main process module
+5. Expose via preload with base64 key
+6. Add to centralized `preloadApiKeys.ts`
 
-## Key Conventions
+**Database Changes**:
+1. Create migration in `packages/database/src/migrations/`
+2. Update table constants in `table-names.ts`
+3. Add repository methods following existing patterns
 
-### File Naming
-- TypeScript files use `.ts`/`.tsx` extensions
-- Module files use `.js` extension (ESM format)
-- Route files follow TanStack Router conventions (`__root.tsx`, `index.tsx`)
+**UI Features**:
+1. Add route file to `packages/renderer/src/routes/`
+2. Use TanStack Router with hash history
+3. Call preload APIs via centralized keys
+4. Handle structured error responses
 
-### Import Patterns
-- Use relative imports within packages
-- Use workspace imports (`@app/*`) between packages
-- ESM-only (no CommonJS)
+### Excel Processing Specifics
 
-### Error Handling
-Renderer includes comprehensive fallback rendering when router fails:
-```typescript
-try {
-  root.render(<RouterProvider router={router} />)
-} catch (error) {
-  // Fallback to static HTML
-  rootElement.innerHTML = `<!-- Fallback content -->`
-}
-```
+**Column Mapping** (ManageEngine → Domain):
+- "Created Time" → `createdTime`
+- "Request ID" → `requestId` (with hyperlink)
+- "Información Adicional" → `additionalInfo`
+- "Categorización" → `categorization`
 
-## When Adding Features
+**Validation Rules**:
+- Required columns must exist and have data
+- Hyperlinks extracted from Excel cells
+- Empty cells become `undefined` in domain objects
+- All parsing errors collected and returned as structured response
 
-### New Electron Modules
-Create in `packages/main/src/modules/` implementing `AppModule` interface, then register in `packages/main/src/index.ts`.
+### Testing Patterns
 
-### New Routes
-Add files to `packages/renderer/src/routes/` - auto-generated route tree handles registration.
+**E2E Tests**: Playwright launches compiled Electron app, tests real behavior
+**Unit Tests**: Focus on domain logic and service orchestration
+**Integration**: Repository implementations with in-memory database
 
-### Security Changes
-Update origin allowlists in `packages/main/src/index.ts` when adding external dependencies or dev servers.
+### Build & Deployment
 
-### Build Process Changes
-Modify `packages/dev-mode.js` for development workflow changes or package build order.
+**Electron Builder**: Custom config in `electron-builder.mjs`
+**Code Signing**: Disabled for development (`forceCodeSigning: false`)
+**Distribution**: GitHub releases with auto-updater support
