@@ -2,4 +2,11 @@ packages:
   - packages/*
 
 onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@tailwindcss/oxide'
   - electron
+  - electron-winstaller
+  - esbuild
+  - lzma-native
+  - protobufjs
+  - sharp

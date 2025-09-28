@@ -9,9 +9,15 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WeeklyReportRouteImport } from './routes/weekly-report'
 import { Route as TaggingV3RouteImport } from './routes/tagging-v3'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WeeklyReportRoute = WeeklyReportRouteImport.update({
+  id: '/weekly-report',
+  path: '/weekly-report',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TaggingV3Route = TaggingV3RouteImport.update({
   id: '/tagging-v3',
   path: '/tagging-v3',
@@ -26,31 +32,42 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/tagging-v3': typeof TaggingV3Route
+  '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/tagging-v3': typeof TaggingV3Route
+  '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/tagging-v3': typeof TaggingV3Route
+  '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tagging-v3'
+  fullPaths: '/' | '/tagging-v3' | '/weekly-report'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tagging-v3'
-  id: '__root__' | '/' | '/tagging-v3'
+  to: '/' | '/tagging-v3' | '/weekly-report'
+  id: '__root__' | '/' | '/tagging-v3' | '/weekly-report'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   TaggingV3Route: typeof TaggingV3Route
+  WeeklyReportRoute: typeof WeeklyReportRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/weekly-report': {
+      id: '/weekly-report'
+      path: '/weekly-report'
+      fullPath: '/weekly-report'
+      preLoaderRoute: typeof WeeklyReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tagging-v3': {
       id: '/tagging-v3'
       path: '/tagging-v3'
@@ -71,6 +88,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   TaggingV3Route: TaggingV3Route,
+  WeeklyReportRoute: WeeklyReportRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

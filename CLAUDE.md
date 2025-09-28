@@ -128,6 +128,28 @@ const moduleRunner = createModuleRunner()
 - Focus on user workflows (Excel import, data viewing)
 - Mock data inserted via migration 003
 
+### Development Workflow
+- **Build Order**: After modifying files, rebuild in this order:
+  1. `pnpm run build:core` (if core package changed)
+  2. `pnpm run build:database` (if database package changed)
+  3. `pnpm run build` (rebuilds all packages including main/preload)
+- **Hot Reload Limitations**: Changes to main process or preload require app restart
+- **Multiple App Instances**: Kill existing Electron processes before starting new ones to avoid port conflicts
+
+### Clean Architecture Patterns
+- **Module Structure**: Each feature should have:
+  - `domain/`: Entities, repository interfaces, value objects
+  - `application/`: Use cases, services, batch creators
+  - `infrastructure/`: Repository implementations, parsers, adapters, DTOs
+- **No Dead Code**: Remove unused imports, properties, and parameters immediately
+- **Context Pattern**: Avoid passing ModuleContext around if not needed; use singleton patterns instead
+
+### Common Pitfalls
+- **Import Paths**: Use `@app/core` and `@app/database`, not `@core` or `@database`
+- **File Not Read Error**: Always read a file with the Read tool before trying to Edit it
+- **Database Not Found**: Ensure database singleton is initialized before repository usage
+- **TypeScript Errors**: Check for optional vs required properties in DTOs and domain objects
+
 ### Common Development Tasks
 
 **Adding a new Excel report type**:

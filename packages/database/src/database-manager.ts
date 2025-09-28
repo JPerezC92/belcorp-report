@@ -224,15 +224,22 @@ class DatabaseManager {
 			this.transactionStack.push(transaction);
 
 			// Execute the callback
+			console.log(`Executing transaction callback: ${transactionId}`);
 			const result = await callback(db);
+			console.log(
+				`Transaction callback completed successfully: ${transactionId}`
+			);
 
 			// Commit transaction
 			if (transaction.savepoint) {
 				db.run(`RELEASE SAVEPOINT ${transaction.savepoint}`);
 				console.log(`Released savepoint: ${transaction.savepoint}`);
 			} else {
+				const duration = Date.now() - transaction.startTime;
 				db.run("COMMIT");
-				console.log(`Committed transaction: ${transactionId}`);
+				console.log(
+					`Committed transaction: ${transactionId} (duration: ${duration}ms)`
+				);
 
 				// Auto-save after successful transaction if enabled
 				if (this.config.autoSave && this.config.path) {
@@ -243,6 +250,17 @@ class DatabaseManager {
 			this.transactionStack.pop();
 			return result;
 		} catch (error) {
+			// Log the error that caused the rollback
+			const duration = Date.now() - transaction.startTime;
+			console.error(
+				`Transaction callback failed after ${duration}ms: ${transactionId}`,
+				{
+					error:
+						error instanceof Error ? error.message : String(error),
+					stack: error instanceof Error ? error.stack : undefined,
+				}
+			);
+
 			// Rollback transaction
 			try {
 				if (transaction.savepoint) {
@@ -252,7 +270,10 @@ class DatabaseManager {
 					);
 				} else {
 					db.run("ROLLBACK");
-					console.log(`Rolled back transaction: ${transactionId}`);
+					const duration = Date.now() - transaction.startTime;
+					console.log(
+						`Rolled back transaction: ${transactionId} (duration: ${duration}ms)`
+					);
 				}
 			} catch (rollbackError) {
 				console.error("Failed to rollback transaction:", rollbackError);

@@ -452,8 +452,273 @@ export const migrations: Migration[] = [
 			);
 		},
 	},
-	// Add more migrations here as your schema evolves
+	{
+		version: "002",
+		description: "Create parent child relationships table",
+		up: (db: Database) => {
+			// Create parent_child_relationships table
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS} (
+					parentRequestId TEXT NOT NULL,
+					parentLink TEXT,
+					childRequestId TEXT NOT NULL,
+					childLink TEXT,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					PRIMARY KEY (parentRequestId, childRequestId)
+				)
+			`);
+
+			// Create indexes for better performance
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_parent_child_parentRequestId ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(parentRequestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_parent_child_childRequestId ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(childRequestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_parent_child_createdAt ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(createdAt)`
+			);
+		},
+		down: (db: Database) => {
+			// Drop the table
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}`
+			);
+		},
+	},
+	{
+		version: "008",
+		description: "Create corrective maintenance records table",
+		dependencies: ["002"],
+		up: (db: Database) => {
+			// Create corrective_maintenance_records table
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS} (
+					requestId TEXT PRIMARY KEY,
+					requestIdLink TEXT,
+					createdTime TEXT NOT NULL,
+					applications TEXT NOT NULL,
+					categorization TEXT NOT NULL,
+					requestStatus TEXT NOT NULL,
+					module TEXT NOT NULL,
+					subject TEXT NOT NULL,
+					subjectLink TEXT,
+					priority TEXT NOT NULL,
+					eta TEXT NOT NULL,
+					rca TEXT NOT NULL,
+					businessUnit TEXT NOT NULL,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+
+			// Create indexes for better performance
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestId ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_module ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(module)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_createdTime ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(createdTime)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestStatus ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestStatus)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_businessUnit ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(businessUnit)`
+			);
+		},
+		down: (db: Database) => {
+			// Drop the table
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}`
+			);
+		},
+	},
+	{
+		version: "009",
+		description:
+			"Add businessUnit column to corrective maintenance records table",
+		dependencies: ["008"],
+		up: (db: Database) => {
+			// Check if businessUnit column exists, add it if missing
+			const tableInfo = db.exec(
+				`PRAGMA table_info(${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS})`
+			);
+			const hasBusinessUnitColumn = tableInfo[0]?.values.some(
+				(row: unknown[]) => row[1] === "businessUnit"
+			);
+
+			if (!hasBusinessUnitColumn) {
+				console.log(
+					"Adding missing businessUnit column to corrective_maintenance_records table"
+				);
+				db.run(
+					`ALTER TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS} ADD COLUMN businessUnit TEXT NOT NULL DEFAULT 'Unknown'`
+				);
+
+				// Create index for the new column
+				db.run(
+					`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_businessUnit ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(businessUnit)`
+				);
+			}
+		},
+		down: (db: Database) => {
+			// SQLite doesn't support dropping columns, so we recreate the table without businessUnit
+			db.run(`
+				CREATE TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}_temp (
+					requestId TEXT PRIMARY KEY,
+					requestIdLink TEXT,
+					createdTime TEXT NOT NULL,
+					applications TEXT NOT NULL,
+					categorization TEXT NOT NULL,
+					requestStatus TEXT NOT NULL,
+					module TEXT NOT NULL,
+					subject TEXT NOT NULL,
+					subjectLink TEXT,
+					priority TEXT NOT NULL,
+					eta TEXT NOT NULL,
+					rca TEXT NOT NULL,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+
+			// Copy data from old table to new table (excluding businessUnit column)
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}_temp (
+					requestId, requestIdLink, createdTime, applications, categorization,
+					requestStatus, module, subject, subjectLink, priority, eta, rca, createdAt, updatedAt
+				)
+				SELECT requestId, requestIdLink, createdTime, applications, categorization,
+					   requestStatus, module, subject, subjectLink, priority, eta, rca, createdAt, updatedAt
+				FROM ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}
+			`);
+
+			// Drop old table and rename new table
+			db.run(`DROP TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}`);
+			db.run(
+				`ALTER TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}_temp RENAME TO ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}`
+			);
+
+			// Recreate indexes
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestId ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_module ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(module)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_createdTime ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(createdTime)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestStatus ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestStatus)`
+			);
+		},
+	},
+	{
+		version: "010",
+		description: "Create monthly report records table with complete schema",
+		dependencies: ["002"],
+		up: (db: Database) => {
+			// Create monthly_report_records table with all Excel columns and computed fields
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MONTHLY_REPORT_RECORDS} (
+					-- Primary key
+					requestId TEXT PRIMARY KEY,
+
+					-- Excel columns (25 total) - Spanish names in comments
+					applications TEXT NOT NULL,           -- Aplicativos
+					categorization TEXT,                  -- Categorización
+					requestIdLink TEXT,                   -- Request ID (hyperlink)
+					createdTime TEXT NOT NULL,            -- Created Time
+					requestStatus TEXT NOT NULL,          -- Request Status
+					module TEXT NOT NULL,                 -- Modulo.
+					subject TEXT NOT NULL,                -- Subject
+					subjectLink TEXT,                     -- Subject (hyperlink)
+					priority TEXT,                        -- Priority
+					eta TEXT,                             -- ETA
+					additionalInfo TEXT,                  -- Información Adicional
+					resolvedTime TEXT,                    -- Resolved Time
+					affectedCountries TEXT,               -- Países Afectados
+					recurrence TEXT,                      -- Recurrencia
+					technician TEXT,                      -- Technician
+					jira TEXT,                           -- Jira
+					problemId TEXT,                      -- Problem ID
+					problemIdLink TEXT,                  -- Problem ID (hyperlink)
+					linkedRequestId TEXT,                -- Linked Request Id
+					linkedRequestIdLink TEXT,            -- Linked Request Id (hyperlink)
+					requestOLAStatus TEXT,               -- Request OLA Status
+					escalationGroup TEXT,                -- Grupo Escalamiento
+					affectedApplications TEXT,           -- Aplicactivos Afectados
+					shouldResolveLevel1 TEXT,            -- ¿Este Incidente se debió Resolver en Nivel 1?
+					campaign TEXT,                       -- Campaña
+					cuv1 TEXT,                          -- CUV_1
+					release TEXT,                       -- Release
+					rca TEXT,                          -- RCA
+
+					-- Computed columns
+					businessUnit TEXT NOT NULL,         -- Derived from applications
+					semanal BOOLEAN DEFAULT 0,          -- Is from current week
+					rep TEXT NOT NULL,                  -- Business unit code
+					dia INTEGER NOT NULL,               -- Day of month
+					week INTEGER NOT NULL,              -- ISO week number
+					priorityReporte TEXT,                -- Mapped priority to English
+					requestStatusReporte TEXT NOT NULL, -- Mapped status for reporting
+					informacionAdicionalReporte TEXT,   -- Validated additional info
+					enlaces INTEGER DEFAULT 0,          -- Count of linked tickets
+					mensaje TEXT,                       -- Formatted message
+					statusModifiedByUser BOOLEAN DEFAULT 0, -- Track user modifications
+
+					-- Metadata
+					createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+
+			// Create indexes for better performance
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_requestId ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(requestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_applications ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(applications)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_module ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(module)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_createdTime ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(createdTime)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_requestStatus ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(requestStatus)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_businessUnit ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(businessUnit)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_rep ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(rep)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_semanal ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(semanal)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_week ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(week)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_linkedRequestId ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(linkedRequestId)`
+			);
+		},
+		down: (db: Database) => {
+			// Drop the table
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}`
+			);
+		},
+	},
 ];
+// Add more migrations here as your schema evolves
 
 // Generate checksums for all migrations
 migrations.forEach((migration) => {

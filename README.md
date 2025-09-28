@@ -42,8 +42,12 @@ Follow these steps to get started with the Belcorp Report application:
    - `corepack enable` (if you have Node.js 16.13+)
    - Or download from [pnpm.io/installation](https://pnpm.io/installation)
 3. Install dependencies: `pnpm install`
-4. Start application in development mode: `pnpm start`
-5. Compile executable for production: `pnpm run compile`
+4. **For faster development builds**: Use individual package builds instead of parallel builds:
+   - `pnpm run build:core` - Build core package only
+   - `pnpm run build:database` - Build database package only
+   - Avoid `pnpm run dev:libs` (parallel builds can be slow/unreliable)
+5. **Start development mode**: `pnpm run dev:full` (runs libs + electron app together)
+6. Compile executable for production: `pnpm run compile`
 
 That's all you need to run the Belcorp Report application! 🚀
 
@@ -319,6 +323,30 @@ Start the Belcorp Report application in development mode with hot-reload.
 pnpm run dev:libs
 ```
 Start development mode for core business logic and database packages in watch mode.
+
+---
+```sh
+pnpm run dev:core
+```
+Start development mode for the core package only (recommended for faster builds).
+
+---
+```sh
+pnpm run dev:database
+```
+Start development mode for the database package only (recommended for faster builds).
+
+---
+```sh
+pnpm run build:core
+```
+Build the core package individually (recommended for faster, more reliable builds).
+
+---
+```sh
+pnpm run build:database
+```
+Build the database package individually (recommended for faster, more reliable builds).
 
 ---
 ```sh

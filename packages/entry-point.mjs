@@ -1,14 +1,29 @@
-import {initApp} from '@app/main';
-import {fileURLToPath} from 'node:url';
+import { fileURLToPath } from "node:url";
+import { initApp } from "@app/main";
+import { app } from "electron";
 
-if (process.env.NODE_ENV === 'development' || process.env.PLAYWRIGHT_TEST === 'true' || !!process.env.CI) {
-  function showAndExit(...args) {
-    console.error(...args);
-    process.exit(1);
-  }
+app.commandLine.appendSwitch("--enable-experimental-web-platform-features");
+app.commandLine.appendSwitch(
+	"--enable-features",
+	"TranslateUI,BlinkGenPropertyTrees",
+);
+app.commandLine.appendSwitch(
+	"--enable-blink-features",
+	"AISummarizerAPI,AITranslatorAPI",
+);
 
-  process.on('uncaughtException', showAndExit);
-  process.on('unhandledRejection', showAndExit);
+if (
+	process.env.NODE_ENV === "development" ||
+	process.env.PLAYWRIGHT_TEST === "true" ||
+	!!process.env.CI
+) {
+	function showAndExit(...args) {
+		console.error(...args);
+		process.exit(1);
+	}
+
+	process.on("uncaughtException", showAndExit);
+	process.on("unhandledRejection", showAndExit);
 }
 
 // noinspection JSIgnoredPromiseFromCall
@@ -22,25 +37,26 @@ if (process.env.NODE_ENV === 'development' || process.env.PLAYWRIGHT_TEST === 't
  * as it receives initialization instructions rather than direct module imports.
  */
 
-const rendererPath = fileURLToPath(import.meta.resolve('@app/renderer'));
-const preloadPath = fileURLToPath(import.meta.resolve('@app/preload/exposed.mjs'));
-
-console.log('=== Electron App Initialization ===');
-console.log('Mode:', process.env.MODE);
-console.log('Development server URL:', process.env.VITE_DEV_SERVER_URL);
-console.log('Renderer path:', rendererPath);
-console.log('Preload path:', preloadPath);
-
-initApp(
-  {
-    renderer: (process.env.MODE === 'development' && !!process.env.VITE_DEV_SERVER_URL) ?
-      new URL(process.env.VITE_DEV_SERVER_URL)
-      : {
-        path: rendererPath,
-      },
-
-    preload: {
-      path: preloadPath,
-    },
-  },
+const rendererPath = fileURLToPath(import.meta.resolve("@app/renderer"));
+const preloadPath = fileURLToPath(
+	import.meta.resolve("@app/preload/exposed.mjs"),
 );
+
+console.log("=== Electron App Initialization ===");
+console.log("Mode:", process.env.MODE);
+console.log("Development server URL:", process.env.VITE_DEV_SERVER_URL);
+console.log("Renderer path:", rendererPath);
+console.log("Preload path:", preloadPath);
+
+initApp({
+	renderer:
+		process.env.MODE === "development" && !!process.env.VITE_DEV_SERVER_URL
+			? new URL(process.env.VITE_DEV_SERVER_URL)
+			: {
+					path: rendererPath,
+				},
+
+	preload: {
+		path: preloadPath,
+	},
+});

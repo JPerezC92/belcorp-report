@@ -10,6 +10,9 @@ export default function Header() {
 				<div className="px-2 font-bold">
 					<Link to="/tagging-v3">Tagging v3</Link>
 				</div>
+				<div className="px-2 font-bold">
+					<Link to="/weekly-report">Weekly Report</Link>
+				</div>
 			</nav>
 		</header>
 	);

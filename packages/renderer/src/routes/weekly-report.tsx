@@ -13,6 +13,7 @@ import ErrorState from "@/components/ErrorState";
 import FileUploadSection from "@/components/FileUploadSection";
 import FilterControls from "@/components/FilterControls";
 import LoadingState from "@/components/LoadingState";
+import MonthlyReportTable from "@/components/MonthlyReportTable";
 import ParentChildExcelImport from "@/components/ParentChildExcelImport";
 import RefreshButton from "@/components/RefreshButton";
 import TabNavigation from "@/components/TabNavigation";
@@ -235,7 +236,7 @@ function WeeklyReportComponent() {
 		null,
 	);
 	const [selectedMonthlyBusinessUnit, setSelectedMonthlyBusinessUnit] =
-		useState<string>("");
+		useState<string | undefined>(undefined);
 	const [selectedMonthlyRequestStatus, setSelectedMonthlyRequestStatus] =
 		useState<string>("");
 	const [selectedMonthlyMonth, setSelectedMonthlyMonth] =
@@ -249,15 +250,40 @@ function WeeklyReportComponent() {
 	>(
 		new Set([
 			"requestId",
+			"applications",
+			"categorization",
 			"createdTime",
-			"subject",
 			"requestStatus",
+			"module",
+			"subject",
 			"priority",
+			"priorityReporte",
+			"eta",
+			"additionalInfo",
+			"resolvedTime",
+			"affectedCountries",
+			"recurrence",
 			"technician",
+			"jira",
+			"problemId",
+			"linkedRequestId",
+			"requestOLAStatus",
+			"escalationGroup",
+			"affectedApplications",
+			"shouldResolveLevel1",
+			"campaign",
+			"cuv1",
+			"release",
+			"rca",
 			"businessUnit",
-			"month",
-			"quarter",
+			"semanal",
+			"rep",
+			"dia",
+			"week",
+			"requestStatusReporte",
+			"informacionAdicionalReporte",
 			"enlaces",
+			"mensaje",
 		]),
 	);
 
@@ -652,9 +678,21 @@ function WeeklyReportComponent() {
 		setMonthlyReportError(null);
 
 		try {
-			const result = (await getPreloadHandler(
-				"getAllMonthlyReportRecords",
-			)()) as MonthlyReportResult;
+			let result: MonthlyReportResult;
+
+			if (selectedMonthlyBusinessUnit) {
+				// Use filtered search when business unit is selected
+				const handler = getPreloadHandler(
+					"getMonthlyReportRecordsByBusinessUnit",
+				);
+				result = (await handler(selectedMonthlyBusinessUnit)) as MonthlyReportResult;
+			} else {
+				// Load all records when no filter is selected
+				const handler = getPreloadHandler(
+					"getAllMonthlyReportRecords",
+				);
+				result = (await handler()) as MonthlyReportResult;
+			}
 
 			if (result.success) {
 				setMonthlyReportRecords(result.data || []);
@@ -668,7 +706,7 @@ function WeeklyReportComponent() {
 		} finally {
 			setMonthlyReportLoading(false);
 		}
-	}, []);
+	}, [selectedMonthlyBusinessUnit]);
 
 	const handleMonthlyFileUpload = useCallback(
 		async (file: File) => {
@@ -908,12 +946,12 @@ function WeeklyReportComponent() {
 		[loadMonthlyReportRecords],
 	);
 
-	// Load monthly report data when monthly-report-data tab is active
+	// Load monthly report data when monthly-report-data tab is active or filter changes
 	useEffect(() => {
 		if (activeTab === "monthly-report-data") {
 			loadMonthlyReportRecords();
 		}
-	}, [activeTab, loadMonthlyReportRecords]);
+	}, [activeTab, selectedMonthlyBusinessUnit, loadMonthlyReportRecords]);
 
 	// Convert Set to Record for component compatibility
 	const monthlyVisibleColumnsRecord = Array.from(
@@ -1251,158 +1289,37 @@ function WeeklyReportComponent() {
 								</div>
 							</div>
 
+							{/* Filters */}
+							<FilterControls
+								businessUnits={[
+									"FFVV",
+									"SB",
+									"UB-3",
+									"UN-2",
+									"CD",
+									"PROL",
+								]}
+								selectedBusinessUnit={selectedMonthlyBusinessUnit}
+								onBusinessUnitChange={setSelectedMonthlyBusinessUnit}
+								requestStatuses={[]}  // No request status filter for monthly reports
+								selectedRequestStatus=""
+								onRequestStatusChange={() => {}}
+							/>
+
 							{monthlyReportRecords.length === 0 ? (
 								<EmptyState
 									title="No Monthly Report Records"
 									description="Upload an Excel file to get started with monthly report data processing"
 								/>
 							) : (
-								<div className="overflow-x-auto">
-									<table className="min-w-full divide-y divide-gray-200">
-										<thead className="bg-gray-50">
-											<tr>
-												{monthlyVisibleColumnsRecord.requestId && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Request ID
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.createdTime && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Created Time
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.subject && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Subject
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.requestStatus && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Request Status
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.priority && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Priority
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.technician && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Technician
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.businessUnit && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Department
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.month && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Month
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.quarter && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Quarter
-													</th>
-												)}
-												{monthlyVisibleColumnsRecord.enlaces && (
-													<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-														Enlaces
-													</th>
-												)}
-											</tr>
-										</thead>
-										<tbody className="bg-white divide-y divide-gray-200">
-											{monthlyReportRecords.map(
-												(record, index) => (
-													<tr
-														key={
-															record.requestId ||
-															index
-														}
-													>
-														{monthlyVisibleColumnsRecord.requestId && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{record.requestIdLink ? (
-																	<a
-																		href={
-																			record.requestIdLink
-																		}
-																		target="_blank"
-																		rel="noopener noreferrer"
-																		className="text-blue-600 hover:text-blue-800 hover:underline"
-																	>
-																		{
-																			record.requestId
-																		}
-																	</a>
-																) : (
-																	record.requestId
-																)}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.createdTime && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{
-																	record.createdTime
-																}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.subject && (
-															<td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-																{record.subject}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.requestStatus && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{
-																	record.requestStatus
-																}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.priority && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{
-																	record.priority
-																}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.technician && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{
-																	record.technician
-																}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.businessUnit && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{
-																	record.department
-																}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.month && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{record.month}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.quarter && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{record.quarter}
-															</td>
-														)}
-														{monthlyVisibleColumnsRecord.enlaces && (
-															<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-																{record.enlaces}
-															</td>
-														)}
-													</tr>
-												),
-											)}
-										</tbody>
-									</table>
-								</div>
+								<MonthlyReportTable
+									records={monthlyReportRecords}
+									visibleColumns={monthlyVisibleColumnsRecord}
+									onOpenExternal={(url) => {
+										const handler = getPreloadHandler("openExternal");
+										handler(url);
+									}}
+								/>
 							)}
 						</div>
 					</div>

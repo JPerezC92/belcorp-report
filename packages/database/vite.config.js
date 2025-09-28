@@ -1,3 +1,4 @@
+import { resolve } from "path";
 import dts from "vite-plugin-dts";
 
 export default /**
@@ -11,6 +12,11 @@ export default /**
 			tsconfigPath: "./tsconfig.json",
 		}),
 	],
+	resolve: {
+		alias: {
+			"@database": resolve(import.meta.dirname, "src"),
+		},
+	},
 	build: {
 		ssr: true,
 		sourcemap: "inline",
