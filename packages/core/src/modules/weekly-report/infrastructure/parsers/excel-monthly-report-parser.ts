@@ -4,19 +4,28 @@ import type {
 	MonthlyReportExcelSheet,
 } from "@core/modules/weekly-report/domain/monthly-report-parser.js";
 import type { MonthlyReportRecord } from "@core/modules/weekly-report/domain/monthly-report-record.js";
+import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
 import { excelMonthlyReportDtoToDomain } from "@core/modules/weekly-report/infrastructure/adapters/excel-monthly-report-dto-to-domain.adapter.js";
 import {
 	excelMonthlyReportSchema,
 	type ExcelMonthlyReportWithLinks,
 } from "@core/modules/weekly-report/infrastructure/dtos/excel-monthly-report.dto.js";
 import {
-	extractCellValueAndLink,
-	extractHeaderValue,
-} from "@core/modules/weekly-report/infrastructure/utils/excel-parsing.utils.js";
+	cellValueSchema,
+	cellWithLinkSchema,
+} from "@core/shared/schemas/excel-cell-validation.schema.js";
 import ExcelJS from "exceljs";
 
 export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 	private readonly targetSheetName = "ManageEngine Report Framework";
+	private statusMapper?: (status: string) => Promise<string>;
+
+	/**
+	 * Set the status mapper function to use for mapping request statuses
+	 */
+	setStatusMapper(mapper: (status: string) => Promise<string>): void {
+		this.statusMapper = mapper;
+	}
 
 	// Expected Spanish headers in order (columns B through Z, 25 total)
 	private readonly expectedHeaders = [
@@ -49,7 +58,8 @@ export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 
 	async parseExcel(
 		fileBuffer: ArrayBuffer,
-		fileName: string
+		fileName: string,
+		semanalDateRange?: SemanalDateRange | null
 	): Promise<MonthlyReportExcelParseResult> {
 		try {
 			const workbook = new ExcelJS.Workbook();
@@ -84,8 +94,16 @@ export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 				try {
 					const rowData = rows[i];
 					if (rowData) {
+						// Map request status if mapper is available
+						let mappedStatus: string | undefined;
+						if (this.statusMapper && rowData["Request Status"]) {
+							mappedStatus = await this.statusMapper(rowData["Request Status"] as string);
+						}
+
 						const record = excelMonthlyReportDtoToDomain(
-							rowData as unknown as ExcelMonthlyReportWithLinks
+							rowData as unknown as ExcelMonthlyReportWithLinks,
+							semanalDateRange,
+							mappedStatus
 						);
 						records.push(record);
 					}
@@ -144,7 +162,7 @@ export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 		for (let colIndex = 2; colIndex <= 26; colIndex++) {
 			const cell = headerRow.getCell(colIndex);
 			const columnLetter = String.fromCharCode(64 + colIndex); // B, C, D...
-			const headerValue = extractHeaderValue(cell, columnLetter);
+			const headerValue = cellValueSchema.parse(cell.value);
 			headers.push(headerValue);
 		}
 
@@ -188,7 +206,7 @@ export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 				const cell = row.getCell(colIndex);
 
 				// Extract value and link if applicable
-				const { value, link } = extractCellValueAndLink(cell);
+				const { value, link } = cellWithLinkSchema.parse(cell.value);
 
 				// Store the value
 				rowData[header] = value || null;

@@ -36,7 +36,7 @@ export const monthlyReportRecordDbSchema = z.object({
 
 	// Computed columns
 	businessUnit: z.string(),
-	semanal: z.number(), // SQLite stores boolean as 0/1
+	inDateRange: z.number(), // SQLite stores boolean as 0/1
 	rep: z.string(),
 	dia: z.number(),
 	week: z.number(),

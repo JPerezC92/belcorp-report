@@ -8,11 +8,13 @@ import type {
 import { forTaggingDataDtoToDomain } from "../adapters/forTaggingDataDtoToDomain.adapter.js";
 import { forTaggingDataExcelSchema } from "../dtos/for-tagging-data-excel.dto.js";
 import {
-	extractCellValueAndLink,
-	extractHeaderValue,
+	cellValueSchema,
+	cellWithLinkSchema,
+} from "@core/shared/schemas/excel-cell-validation.schema.js";
+import {
 	isLinkColumn,
 	validateHeaders,
-} from "../utils/excel-parsing.utils.js";
+} from "@core/modules/weekly-report/infrastructure/utils/excel-parsing.utils.js";
 
 export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 	private readonly targetSheetName = "ManageEngine Report Framework";
@@ -78,6 +80,15 @@ export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 			const headers = this.extractHeaders(worksheet);
 			const rows = this.extractRows(worksheet, headers);
 
+			// Check if any rows were parsed (0 rows indicates wrong file type or empty file)
+			if (rows.length === 0) {
+				throw new Error(
+					`No data rows found in the Excel file. ` +
+					`This might be an empty file or a different report type. ` +
+					`Expected "For Tagging Data" format with categorized request data.`
+				);
+			}
+
 			const sheet: ForTaggingDataExcelSheet = {
 				name: worksheet.name,
 				headers,
@@ -102,8 +113,18 @@ export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 	private extractHeaders(worksheet: ExcelJS.Worksheet): string[] {
 		const headers = this.columnLetters.map((col) => {
 			const cell = worksheet.getCell(`${col}1`);
-			return extractHeaderValue(cell, col);
+			return cellValueSchema.parse(cell.value);
 		});
+
+		// Check for empty headers (indicates wrong file type)
+		const emptyHeaders = headers.filter((h) => !h || h.trim() === "");
+		if (emptyHeaders.length > 0) {
+			throw new Error(
+				`Invalid file format: Expected 7 columns with headers [${this.headerOrder.join(", ")}]. ` +
+				`Found ${headers.length - emptyHeaders.length} non-empty headers. ` +
+				`This might be a different report type (e.g., Parent-Child Relationships).`
+			);
+		}
 
 		// Validate headers with some flexibility
 		validateHeaders(headers, this.headerOrder, this.headerOrder.length);
@@ -159,7 +180,7 @@ export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 
 				const cell = row.getCell(col);
 				const { value: cellValue, link: cellLink } =
-					extractCellValueAndLink(cell);
+					cellWithLinkSchema.parse(cell.value);
 
 				rowObject[header] = this.isLinkColumn(header)
 					? {

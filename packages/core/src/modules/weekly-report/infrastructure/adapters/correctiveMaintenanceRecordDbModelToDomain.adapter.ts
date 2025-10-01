@@ -20,6 +20,7 @@ export function correctiveMaintenanceRecordDbModelToDomain(
 		eta: string;
 		rca: string;
 		businessUnit: string;
+		inDateRange: boolean;
 	} = {
 		requestId: model.requestId,
 		createdTime: model.createdTime,
@@ -33,6 +34,7 @@ export function correctiveMaintenanceRecordDbModelToDomain(
 		eta: model.eta,
 		rca: model.rca,
 		businessUnit: model.businessUnit,
+		inDateRange: model.inDateRange === 1, // Convert SQLite integer (0/1) to boolean
 	};
 
 	if (model.requestIdLink) {

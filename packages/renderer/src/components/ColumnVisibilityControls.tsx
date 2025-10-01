@@ -11,8 +11,8 @@ const ColumnVisibilityControls = ({
 }: ColumnVisibilityControlsProps) => {
 	const formatColumnLabel = (key: string): string => {
 		switch (key) {
-			case "paw":
-				return "PAW";
+			case "inDateRange":
+				return "In Date Range";
 			case "requestId":
 				return "Request ID";
 			case "createdTime":

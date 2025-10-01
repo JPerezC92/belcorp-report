@@ -21,8 +21,8 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 				INSERT OR REPLACE INTO ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS} (
 					requestId, requestIdLink, createdTime, applications, categorization,
 					requestStatus, module, subject, subjectLink, priority, eta, rca, businessUnit,
-					createdAt, updatedAt
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					inDateRange, createdAt, updatedAt
+				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			`);
 
 			try {
@@ -41,6 +41,7 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 						record.eta,
 						record.rca,
 						record.businessUnit,
+						record.inDateRange ? 1 : 0,
 						record.createdAt.toISOString(),
 						record.updatedAt.toISOString(),
 					]);
@@ -111,6 +112,7 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 			eta: row.eta,
 			rca: row.rca,
 			businessUnit: row.businessUnit,
+			inDateRange: row.inDateRange,
 			createdAt: row.createdAt,
 			updatedAt: row.updatedAt,
 			enlaces: (row.enlaces_count as number) || 0,
@@ -217,6 +219,7 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 			eta: row.eta,
 			rca: row.rca,
 			businessUnit: row.businessUnit,
+			inDateRange: row.inDateRange,
 			createdAt: row.createdAt,
 			updatedAt: row.updatedAt,
 			enlaces: (row.enlaces_count as number) || 0,
@@ -348,6 +351,7 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 			eta: row.eta,
 			rca: row.rca,
 			businessUnit: row.businessUnit,
+			inDateRange: row.inDateRange,
 			createdAt: row.createdAt,
 			updatedAt: row.updatedAt,
 			enlaces: (row.enlaces_count as number) || 0,
@@ -413,6 +417,7 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 			eta: row.eta,
 			rca: row.rca,
 			businessUnit: row.businessUnit,
+			inDateRange: row.inDateRange,
 			createdAt: row.createdAt,
 			updatedAt: row.updatedAt,
 		}));
@@ -446,6 +451,7 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 			eta: row.eta,
 			rca: row.rca,
 			businessUnit: row.businessUnit,
+			inDateRange: row.inDateRange,
 			createdAt: row.createdAt,
 			updatedAt: row.updatedAt,
 		}));

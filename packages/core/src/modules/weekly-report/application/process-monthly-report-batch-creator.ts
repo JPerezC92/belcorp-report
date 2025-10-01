@@ -1,5 +1,6 @@
 import type { MonthlyReportExcelParser } from "../domain/monthly-report-parser.js";
 import type { MonthlyReportRepository } from "../domain/monthly-report-repository.js";
+import type { SemanalDateRangeRepository } from "../domain/semanal-date-range-repository.js";
 
 export interface ProcessMonthlyReportBatchResult {
 	success: boolean;
@@ -11,7 +12,8 @@ export interface ProcessMonthlyReportBatchResult {
 export class ProcessMonthlyReportBatchCreator {
 	constructor(
 		private readonly parser: MonthlyReportExcelParser,
-		private readonly repository: MonthlyReportRepository
+		private readonly repository: MonthlyReportRepository,
+		private readonly semanalDateRangeRepository: SemanalDateRangeRepository
 	) {}
 
 	async execute(
@@ -21,8 +23,12 @@ export class ProcessMonthlyReportBatchCreator {
 		try {
 			console.log(`[ProcessMonthlyReportBatch] Processing file: ${fileName}`);
 
-			// Parse the Excel file
-			const parseResult = await this.parser.parseExcel(fileBuffer, fileName);
+			// Get the active semanal date range
+			const activeDateRange = await this.semanalDateRangeRepository.getActive();
+			console.log(`[ProcessMonthlyReportBatch] Using date range: ${activeDateRange?.getDisplayText() || 'default current week'}`);
+
+			// Parse the Excel file with the date range
+			const parseResult = await this.parser.parseExcel(fileBuffer, fileName, activeDateRange);
 
 			if (!parseResult.success || !parseResult.records) {
 				return {

@@ -11,6 +11,8 @@ import type { AppModule } from "../AppModule.js";
 import type { ModuleContext } from "../ModuleContext.js";
 import { SqlJsCorrectiveMaintenanceRecordRepository } from "../repositories/SqlJsCorrectiveMaintenanceRecordRepository.js";
 import { SqlJsParentChildRelationshipRepository } from "../repositories/SqlJsParentChildRelationshipRepository.js";
+import { SqlJsSemanalDateRangeRepository } from "../repositories/SqlJsSemanalDateRangeRepository.js";
+import { ServiceRegistry } from "../services/ServiceRegistry.js";
 
 /**
  * Module to handle weekly report operations via IPC
@@ -63,13 +65,18 @@ export class WeeklyReportModule implements AppModule {
 						const correctiveRepo =
 							new SqlJsCorrectiveMaintenanceRecordRepository();
 						const correctiveParser =
-							new CorrectiveMaintenanceExcelParserImpl();
+							new CorrectiveMaintenanceExcelParserImpl(
+								this.getBusinessUnitDetector()
+							);
+						const semanalRepo = new SqlJsSemanalDateRangeRepository();
+						const semanalDateRange = await semanalRepo.getCurrent();
 
 						result = await service.parseCorrectiveMaintenanceExcel({
 							fileBuffer: buffer,
 							fileName: filename,
 							repository: correctiveRepo,
 							excelParser: correctiveParser,
+							semanalDateRange,
 						});
 					} else {
 						// Unknown file type
@@ -242,6 +249,8 @@ export class WeeklyReportModule implements AppModule {
 			"weekly-report:parseCorrectiveMaintenanceExcel",
 			async (_event, fileBuffer: ArrayBuffer, fileName: string) => {
 				const weeklyReportService = createWeeklyReportService();
+				const semanalRepo = new SqlJsSemanalDateRangeRepository();
+				const semanalDateRange = await semanalRepo.getCurrent();
 
 				const parseResult =
 					await weeklyReportService.parseCorrectiveMaintenanceExcel({
@@ -249,7 +258,10 @@ export class WeeklyReportModule implements AppModule {
 						fileName,
 						repository:
 							new SqlJsCorrectiveMaintenanceRecordRepository(),
-						excelParser: new CorrectiveMaintenanceExcelParserImpl(),
+						excelParser: new CorrectiveMaintenanceExcelParserImpl(
+							this.getBusinessUnitDetector()
+						),
+						semanalDateRange,
 					});
 				return parseResult;
 			}
@@ -408,6 +420,19 @@ export class WeeklyReportModule implements AppModule {
 	async disable(): Promise<void> {
 		// Clean up translator if needed
 		this.translator = null;
+	}
+
+	/**
+	 * Get business unit detector function from service registry
+	 */
+	private getBusinessUnitDetector() {
+		const businessUnitService = ServiceRegistry.getBusinessUnitService();
+		if (businessUnitService) {
+			// Return bound method to maintain proper context
+			return businessUnitService.detectBusinessUnit.bind(businessUnitService);
+		}
+		// Return undefined to fallback to hardcoded logic
+		return undefined;
 	}
 
 	private async initializeTranslator(): Promise<void> {

@@ -43,6 +43,7 @@ export interface PreloadHandlers {
 		requestStatus?: string
 	) => Promise<unknown>;
 	getDistinctRequestStatuses: () => Promise<string[]>;
+	getDistinctMonthlyRequestStatusReporte: () => Promise<string[]>;
 	copyTextToClipboard: (text: string) => void;
 	copyHtmlToClipboard: (html: string, text?: string) => void;
 	translateText: (text: string) => Promise<string>;

@@ -7,8 +7,10 @@ import type { ParentChildRelationship } from "@core/modules/weekly-report/domain
 import { parentChildRelationshipDtoToDomain } from "@core/modules/weekly-report/infrastructure/adapters/parentChildRelationshipDtoToDomain.adapter.js";
 import { parentChildRelationshipExcelSchema } from "@core/modules/weekly-report/infrastructure/dtos/parent-child-relationship-excel.dto.js";
 import {
-	extractCellValueAndLink,
-	extractHeaderValue,
+	cellValueSchema,
+	cellWithLinkSchema,
+} from "@core/shared/schemas/excel-cell-validation.schema.js";
+import {
 	isLinkColumn,
 	validateHeaders,
 } from "@core/modules/weekly-report/infrastructure/utils/excel-parsing.utils.js";
@@ -87,7 +89,7 @@ export class ParentChildExcelParser
 
 		this.columnLetters.forEach((colLetter) => {
 			const cell = headerRow.getCell(colLetter);
-			const headerValue = extractHeaderValue(cell, colLetter);
+			const headerValue = cellValueSchema.parse(cell.value);
 			headers.push(headerValue);
 		});
 
@@ -123,7 +125,7 @@ export class ParentChildExcelParser
 
 				const cell = row.getCell(colLetter);
 				const { value: cellValue, link: cellLink } =
-					extractCellValueAndLink(cell);
+					cellWithLinkSchema.parse(cell.value);
 
 				rowData[header] = this.isLinkColumn(header)
 					? {

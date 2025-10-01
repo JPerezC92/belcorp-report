@@ -81,7 +81,12 @@ function TaggingV3Component() {
 				throw new Error("Tag report upload function not available");
 			}
 			const fileBuffer = await file.arrayBuffer();
-			await uploadAndParseTagReport(fileBuffer, file.name);
+			const result = await uploadAndParseTagReport(fileBuffer, file.name);
+
+			if (!result.success) {
+				throw new Error(result.error || "Failed to parse TAG report");
+			}
+
 			setParseStatus({
 				loading: false,
 				error: null,
@@ -120,7 +125,12 @@ function TaggingV3Component() {
 				);
 			}
 			const fileBuffer = await file.arrayBuffer();
-			await parseAndSaveForTaggingDataExcel(fileBuffer, file.name);
+			const result = await parseAndSaveForTaggingDataExcel(fileBuffer, file.name);
+
+			if (!result.success) {
+				throw new Error(result.error || "Failed to parse For Tagging Data Excel");
+			}
+
 			setForTaggingParseStatus({
 				loading: false,
 				error: null,
@@ -258,7 +268,7 @@ function TaggingV3Component() {
 	if (loading) {
 		return (
 			<div className="container mx-auto px-4 py-8">
-				<div className="max-w-6xl mx-auto">
+				<div className="max-w-7xl mx-auto">
 					<h1 className="text-3xl font-bold text-gray-800 mb-6">
 						Tagging v3
 					</h1>
@@ -276,7 +286,7 @@ function TaggingV3Component() {
 	if (error) {
 		return (
 			<div className="container mx-auto px-4 py-8">
-				<div className="max-w-6xl mx-auto">
+				<div className="max-w-7xl mx-auto">
 					<h1 className="text-3xl font-bold text-gray-800 mb-6">
 						Tagging v3
 					</h1>
@@ -322,218 +332,10 @@ function TaggingV3Component() {
 
 	return (
 		<div className="container mx-auto px-4 py-8">
-			<div className="max-w-6xl mx-auto">
+			<div className="max-w-7xl mx-auto">
 				<h1 className="text-3xl font-bold text-gray-800 mb-6">
 					Tagging v3
 				</h1>
-				{/* File Upload Section - Always Visible */}
-				<div className="bg-white rounded-lg shadow-md mb-6">
-					<div className="px-6 py-4 border-b border-gray-200">
-						<h2 className="text-xl font-semibold text-gray-800">
-							Upload TAG Report
-						</h2>
-						<p className="text-gray-600">
-							Upload an Excel file to parse TAG report data using
-							the new core parser
-						</p>
-					</div>
-					<div className="p-6">
-						<div className="mb-4">
-							<label
-								htmlFor="file-upload"
-								className="block text-sm font-medium text-gray-700 mb-2"
-							>
-								Select Excel File
-							</label>
-							<input
-								id="file-upload"
-								type="file"
-								accept=".xlsx,.xls"
-								onChange={handleFileUpload}
-								disabled={parseStatus.loading}
-								className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
-							/>
-						</div>
-
-						{parseStatus.loading && (
-							<div className="flex items-center text-blue-600 mb-4">
-								<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-								<span className="text-sm">Parsing file...</span>
-							</div>
-						)}
-
-						{parseStatus.error && (
-							<div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
-								<div className="flex">
-									<div className="flex-shrink-0">
-										<svg
-											className="h-5 w-5 text-red-400"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											role="img"
-											aria-labelledby="error-icon-title"
-										>
-											<title id="error-icon-title">
-												Error icon
-											</title>
-											<path
-												fillRule="evenodd"
-												d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-												clipRule="evenodd"
-											/>
-										</svg>
-									</div>
-									<div className="ml-3">
-										<h3 className="text-sm font-medium text-red-800">
-											Parse Error
-										</h3>
-										<div className="mt-2 text-sm text-red-700">
-											{parseStatus.error}
-										</div>
-									</div>
-								</div>
-							</div>
-						)}
-
-						{parseStatus.success && (
-							<div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
-								<div className="flex">
-									<div className="flex-shrink-0">
-										<svg
-											className="h-5 w-5 text-green-400"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											role="img"
-											aria-labelledby="success-icon-title"
-										>
-											<title id="success-icon-title">
-												Success icon
-											</title>
-											<path
-												fillRule="evenodd"
-												d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-												clipRule="evenodd"
-											/>
-										</svg>
-									</div>
-									<div className="ml-3">
-										<h3 className="text-sm font-medium text-green-800">
-											Success
-										</h3>
-										<div className="mt-2 text-sm text-green-700">
-											{parseStatus.success}
-										</div>
-									</div>
-								</div>
-							</div>
-						)}
-					</div>
-				</div>
-				{/* For Tagging Data Upload Section - Always Visible */}
-				<div className="bg-white rounded-lg shadow-md mb-6">
-					<div className="px-6 py-4 border-b border-gray-200">
-						<h2 className="text-xl font-semibold text-gray-800">
-							Upload For Tagging Report
-						</h2>
-						<p className="text-gray-600">
-							Upload an Excel file to parse and save for tagging
-							data
-						</p>
-					</div>
-					<div className="p-6">
-						<div className="mb-4">
-							<label
-								htmlFor="for-tagging-file-upload"
-								className="block text-sm font-medium text-gray-700 mb-2"
-							>
-								Select Excel File
-							</label>
-							<input
-								id="for-tagging-file-upload"
-								type="file"
-								accept=".xlsx,.xls"
-								onChange={handleForTaggingFileUpload}
-								disabled={forTaggingParseStatus.loading}
-								className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 disabled:opacity-50"
-							/>
-						</div>
-
-						{forTaggingParseStatus.loading && (
-							<div className="flex items-center text-green-600 mb-4">
-								<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
-								<span className="text-sm">
-									Parsing and saving file...
-								</span>
-							</div>
-						)}
-
-						{forTaggingParseStatus.error && (
-							<div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
-								<div className="flex">
-									<div className="flex-shrink-0">
-										<svg
-											className="h-5 w-5 text-red-400"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											role="img"
-											aria-labelledby="error-icon-title-2"
-										>
-											<title id="error-icon-title-2">
-												Error icon
-											</title>
-											<path
-												fillRule="evenodd"
-												d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-												clipRule="evenodd"
-											/>
-										</svg>
-									</div>
-									<div className="ml-3">
-										<h3 className="text-sm font-medium text-red-800">
-											Parse Error
-										</h3>
-										<div className="mt-2 text-sm text-red-700">
-											{forTaggingParseStatus.error}
-										</div>
-									</div>
-								</div>
-							</div>
-						)}
-
-						{forTaggingParseStatus.success && (
-							<div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
-								<div className="flex">
-									<div className="flex-shrink-0">
-										<svg
-											className="h-5 w-5 text-green-400"
-											viewBox="0 0 20 20"
-											fill="currentColor"
-											role="img"
-											aria-labelledby="success-icon-title-2"
-										>
-											<title id="success-icon-title-2">
-												Success icon
-											</title>
-											<path
-												fillRule="evenodd"
-												d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-												clipRule="evenodd"
-											/>
-										</svg>
-									</div>
-									<div className="ml-3">
-										<h3 className="text-sm font-medium text-green-800">
-											Success
-										</h3>
-										<div className="mt-2 text-sm text-green-700">
-											{forTaggingParseStatus.success}
-										</div>
-									</div>
-								</div>
-							</div>
-						)}
-					</div>
-				</div>
 				{/* Tab Navigation */}
 				<div className="mb-6">
 					<div className="border-b border-gray-200">
@@ -569,7 +371,7 @@ function TaggingV3Component() {
 										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
 								}`}
 							>
-								Enriched Data
+								Request Insights
 							</button>
 						</nav>
 					</div>
@@ -577,6 +379,110 @@ function TaggingV3Component() {
 				{/* Tab Content */}
 				{activeTab === "tag-data" && (
 					<div className="space-y-6">
+						{/* File Upload Section */}
+						<div className="bg-white rounded-lg shadow-md">
+							<div className="px-6 py-4 border-b border-gray-200">
+								<h2 className="text-xl font-semibold text-gray-800">
+									Upload TAG Report
+								</h2>
+								<p className="text-gray-600">
+									Upload an Excel file to parse TAG report data using
+									the new core parser
+								</p>
+							</div>
+							<div className="p-6">
+								<div className="mb-4">
+									<label
+										htmlFor="file-upload"
+										className="block text-sm font-medium text-gray-700 mb-2"
+									>
+										Select Excel File
+									</label>
+									<input
+										id="file-upload"
+										type="file"
+										accept=".xlsx,.xls"
+										onChange={handleFileUpload}
+										disabled={parseStatus.loading}
+										className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 disabled:opacity-50"
+									/>
+								</div>
+
+								{parseStatus.loading && (
+									<div className="flex items-center text-blue-600 mb-4">
+										<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+										<span className="text-sm">Parsing file...</span>
+									</div>
+								)}
+
+								{parseStatus.error && (
+									<div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+										<div className="flex">
+											<div className="flex-shrink-0">
+												<svg
+													className="h-5 w-5 text-red-400"
+													viewBox="0 0 20 20"
+													fill="currentColor"
+													role="img"
+													aria-labelledby="error-icon-title"
+												>
+													<title id="error-icon-title">
+														Error icon
+													</title>
+													<path
+														fillRule="evenodd"
+														d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+														clipRule="evenodd"
+													/>
+												</svg>
+											</div>
+											<div className="ml-3">
+												<h3 className="text-sm font-medium text-red-800">
+													Parse Error
+												</h3>
+												<div className="mt-2 text-sm text-red-700">
+													{parseStatus.error}
+												</div>
+											</div>
+										</div>
+									</div>
+								)}
+
+								{parseStatus.success && (
+									<div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+										<div className="flex">
+											<div className="flex-shrink-0">
+												<svg
+													className="h-5 w-5 text-green-400"
+													viewBox="0 0 20 20"
+													fill="currentColor"
+													role="img"
+													aria-labelledby="success-icon-title"
+												>
+													<title id="success-icon-title">
+														Success icon
+													</title>
+													<path
+														fillRule="evenodd"
+														d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+														clipRule="evenodd"
+													/>
+												</svg>
+											</div>
+											<div className="ml-3">
+												<h3 className="text-sm font-medium text-green-800">
+													Success
+												</h3>
+												<div className="mt-2 text-sm text-green-700">
+													{parseStatus.success}
+												</div>
+											</div>
+										</div>
+									</div>
+								)}
+							</div>
+						</div>
+
 						{/* Refresh Button */}
 						<div className="flex justify-end">
 							<button
@@ -785,6 +691,112 @@ function TaggingV3Component() {
 
 				{activeTab === "for-tagging-data" && (
 					<div className="space-y-6">
+						{/* For Tagging Data Upload Section */}
+						<div className="bg-white rounded-lg shadow-md">
+							<div className="px-6 py-4 border-b border-gray-200">
+								<h2 className="text-xl font-semibold text-gray-800">
+									Upload For Tagging Report
+								</h2>
+								<p className="text-gray-600">
+									Upload an Excel file to parse and save for tagging
+									data
+								</p>
+							</div>
+							<div className="p-6">
+								<div className="mb-4">
+									<label
+										htmlFor="for-tagging-file-upload"
+										className="block text-sm font-medium text-gray-700 mb-2"
+									>
+										Select Excel File
+									</label>
+									<input
+										id="for-tagging-file-upload"
+										type="file"
+										accept=".xlsx,.xls"
+										onChange={handleForTaggingFileUpload}
+										disabled={forTaggingParseStatus.loading}
+										className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100 disabled:opacity-50"
+									/>
+								</div>
+
+								{forTaggingParseStatus.loading && (
+									<div className="flex items-center text-green-600 mb-4">
+										<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mr-2"></div>
+										<span className="text-sm">
+											Parsing and saving file...
+										</span>
+									</div>
+								)}
+
+								{forTaggingParseStatus.error && (
+									<div className="bg-red-50 border border-red-200 rounded-md p-3 mb-4">
+										<div className="flex">
+											<div className="flex-shrink-0">
+												<svg
+													className="h-5 w-5 text-red-400"
+													viewBox="0 0 20 20"
+													fill="currentColor"
+													role="img"
+													aria-labelledby="error-icon-title-2"
+												>
+													<title id="error-icon-title-2">
+														Error icon
+													</title>
+													<path
+														fillRule="evenodd"
+														d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+														clipRule="evenodd"
+													/>
+												</svg>
+											</div>
+											<div className="ml-3">
+												<h3 className="text-sm font-medium text-red-800">
+													Parse Error
+												</h3>
+												<div className="mt-2 text-sm text-red-700">
+													{forTaggingParseStatus.error}
+												</div>
+											</div>
+										</div>
+									</div>
+								)}
+
+								{forTaggingParseStatus.success && (
+									<div className="bg-green-50 border border-green-200 rounded-md p-3 mb-4">
+										<div className="flex">
+											<div className="flex-shrink-0">
+												<svg
+													className="h-5 w-5 text-green-400"
+													viewBox="0 0 20 20"
+													fill="currentColor"
+													role="img"
+													aria-labelledby="success-icon-title-2"
+												>
+													<title id="success-icon-title-2">
+														Success icon
+													</title>
+													<path
+														fillRule="evenodd"
+														d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+														clipRule="evenodd"
+													/>
+												</svg>
+											</div>
+											<div className="ml-3">
+												<h3 className="text-sm font-medium text-green-800">
+													Success
+												</h3>
+												<div className="mt-2 text-sm text-green-700">
+													{forTaggingParseStatus.success}
+												</div>
+											</div>
+										</div>
+									</div>
+								)}
+							</div>
+						</div>
+
 						{/* Refresh Button */}
 						<div className="flex justify-end">
 							<button
@@ -993,19 +1005,19 @@ function TaggingV3Component() {
 										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
 									/>
 								</svg>
-								Refresh Enriched Data
+								Refresh Request Insights
 							</button>
 						</div>
 
-						{/* Enriched ForTaggingData Section */}
+						{/* Request Insights Section */}
 						<div className="bg-white rounded-lg shadow-md">
 							<div className="px-6 py-4 border-b border-gray-200">
 								<h2 className="text-xl font-semibold text-gray-800">
-									Enriched ForTaggingData (
+									Request Insights (
 									{enrichedForTaggingData.length} records)
 								</h2>
 								<p className="text-gray-600">
-									Enriched data for tagging
+									Analysis of request relationships and additional information
 								</p>
 							</div>
 

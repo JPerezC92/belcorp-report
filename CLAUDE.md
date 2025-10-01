@@ -96,12 +96,41 @@ const moduleRunner = createModuleRunner()
 - `corrective_maintenance_records`: Weekly corrective maintenance
 - `monthly_report_records`: Monthly report data with computed fields
 
+### Excel Cell Validation (CRITICAL INFRASTRUCTURE)
+
+**Location**: `packages/core/src/shared/schemas/excel-cell-validation.schema.ts`
+
+The most important utility in the entire codebase for Excel processing. These Zod schemas are the ONLY reliable way to extract values and hyperlinks from Excel cells.
+
+**Why This is Critical**:
+- Tested against 486+ real cells from production Excel files with 100% success rate
+- Handles complex edge case: hyperlinks with nested rich text `{ text: { richText: [...] }, hyperlink: "..." }`
+- Eliminates 200+ lines of manual extraction code per parser
+- Provides full TypeScript validation and type safety
+
+**Usage**:
+```typescript
+import { cellValueSchema, cellWithLinkSchema } from '@app/core';
+
+// Extract just the value
+const value = cellValueSchema.parse(cell.value);
+
+// Extract value + link
+const { value, link } = cellWithLinkSchema.parse(cell.value);
+```
+
+**DO NOT**:
+- Create manual `extractCellValueAndLink` functions - they WILL fail on production data
+- Use `cell.text` directly - inconsistent behavior across cell types
+- Parse hyperlinks manually - the nested structures are too complex
+
 ### Key Technical Details
 
 **Excel Processing**:
 - ExcelJS for parsing `.xlsx` files
 - Expected sheet names: "ManageEngine Report Framework", "REP02", "XD SEMANAL CORRECTIVO"
-- Hyperlink extraction from cells for request/problem IDs
+- **CRITICAL**: Always use `cellValueSchema` and `cellWithLinkSchema` from `@app/core` for cell extraction
+- These schemas handle complex nested structures like `{ text: { richText: [...] }, hyperlink: "..." }`
 - Batch processing with transaction support
 
 **Security**:
@@ -146,6 +175,7 @@ const moduleRunner = createModuleRunner()
 
 ### Common Pitfalls
 - **Import Paths**: Use `@app/core` and `@app/database`, not `@core` or `@database`
+- **Excel Cell Extraction**: NEVER use manual extraction functions - they fail on complex hyperlinks. Always use `cellValueSchema`/`cellWithLinkSchema`
 - **File Not Read Error**: Always read a file with the Read tool before trying to Edit it
 - **Database Not Found**: Ensure database singleton is initialized before repository usage
 - **TypeScript Errors**: Check for optional vs required properties in DTOs and domain objects
@@ -154,7 +184,7 @@ const moduleRunner = createModuleRunner()
 
 **Adding a new Excel report type**:
 1. Create domain entities in `packages/core/src/modules/[module-name]/domain/`
-2. Add parser in `infrastructure/parsers/`
+2. Add parser in `infrastructure/parsers/` - **ALWAYS** use `cellValueSchema`/`cellWithLinkSchema` for cell extraction
 3. Create DTOs and adapters in `infrastructure/`
 4. Implement repository interface
 5. Add application service

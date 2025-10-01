@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import type { SemanalDateRange } from "./semanal-date-range.js";
 
 export class MonthlyReportRecord {
 	constructor(
@@ -34,7 +35,7 @@ export class MonthlyReportRecord {
 		public readonly rca: string | null,
 		// Computed fields
 		public readonly businessUnit: string,
-		public readonly semanal: boolean,
+		public readonly inDateRange: boolean,
 		public readonly rep: string,
 		public readonly dia: number,
 		public readonly week: number,
@@ -79,6 +80,8 @@ export class MonthlyReportRecord {
 		release: string | null;
 		rca: string | null;
 		enlaces?: number;
+		semanalDateRange?: SemanalDateRange; // Optional custom date range for Semanal calculation
+		requestStatusReporte?: string; // Optional pre-mapped status (from MonthlyReportStatusMappingService)
 	}): MonthlyReportRecord {
 		// Derive business unit from applications
 		const businessUnit = this.deriveBusinessUnit(data.applications);
@@ -88,12 +91,14 @@ export class MonthlyReportRecord {
 
 		// Parse date and extract computed fields
 		const dateTime = this.parseDateTime(data.createdTime);
-		const semanal = this.isCurrentWeek(dateTime);
+		const inDateRange = data.semanalDateRange
+			? data.semanalDateRange.isDateInRange(dateTime)
+			: this.isCurrentWeek(dateTime); // Fallback to old logic if no range provided
 		const dia = dateTime.day;
 		const week = dateTime.weekNumber;
 
-		// Map request status for reporting
-		const requestStatusReporte = this.mapRequestStatus(data.requestStatus);
+		// Map request status for reporting (use provided value or calculate it)
+		const requestStatusReporte = data.requestStatusReporte ?? this.mapRequestStatus(data.requestStatus);
 
 		// Map priority to English
 		const priorityReporte = this.mapPriority(data.priority);
@@ -106,7 +111,7 @@ export class MonthlyReportRecord {
 
 		// Create mensaje
 		const enlaces = data.enlaces ?? 0;
-		const mensaje = this.createMensaje(data.linkedRequestId, enlaces);
+		const mensaje = this.createMensaje(data.linkedRequestId, enlaces, requestStatusReporte);
 
 		return new MonthlyReportRecord(
 			data.requestId,
@@ -140,7 +145,7 @@ export class MonthlyReportRecord {
 			data.release,
 			data.rca,
 			businessUnit,
-			semanal,
+			inDateRange,
 			rep,
 			dia,
 			week,
@@ -291,9 +296,19 @@ export class MonthlyReportRecord {
 		return additionalInfo;
 	}
 
-	private static createMensaje(linkedRequestId: string | null, enlaces: number): string {
-		const id = linkedRequestId || "N/A";
-		return `${id} --> ${enlaces} Linked tickets`;
+	private static createMensaje(linkedRequestId: string | null, enlaces: number, requestStatusReporte: string): string {
+		// Check if we have meaningful linkedRequestId and enlaces
+		const hasLinkedRequest = linkedRequestId && linkedRequestId.trim() !== "";
+		const hasEnlaces = enlaces > 0;
+
+		// If we have either linkedRequestId or enlaces, create the traditional message
+		if (hasLinkedRequest || hasEnlaces) {
+			const id = linkedRequestId || "N/A";
+			return `${id} --> ${enlaces} Linked tickets`;
+		}
+
+		// Otherwise, return empty string (no fallback in backend)
+		return "";
 	}
 
 	// Method to update status (for user modifications)
@@ -334,7 +349,7 @@ export class MonthlyReportRecord {
 			this.release,
 			this.rca,
 			this.businessUnit,
-			this.semanal,
+			this.inDateRange,
 			this.rep,
 			this.dia,
 			this.week,

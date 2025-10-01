@@ -14,6 +14,7 @@ export const correctiveMaintenanceRecordDbSchema = z.object({
 	eta: z.string(),
 	rca: z.string(),
 	businessUnit: z.string(),
+	inDateRange: z.number(), // SQLite stores boolean as 0/1
 	createdAt: z.string(),
 	updatedAt: z.string(),
 });

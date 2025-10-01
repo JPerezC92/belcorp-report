@@ -21,6 +21,26 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 								Request ID
 							</th>
 						)}
+						{visibleColumns.inDateRange && (
+							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+								In Date Range
+							</th>
+						)}
+						{visibleColumns.rep && (
+							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+								REP
+							</th>
+						)}
+						{visibleColumns.dia && (
+							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+								Day
+							</th>
+						)}
+						{visibleColumns.week && (
+							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+								Week
+							</th>
+						)}
 						{visibleColumns.applications && (
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
 								Applications
@@ -151,26 +171,6 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 								Business Unit
 							</th>
 						)}
-						{visibleColumns.semanal && (
-							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-								Semanal
-							</th>
-						)}
-						{visibleColumns.rep && (
-							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-								REP
-							</th>
-						)}
-						{visibleColumns.dia && (
-							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-								Day
-							</th>
-						)}
-						{visibleColumns.week && (
-							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-								Week
-							</th>
-						)}
 						{visibleColumns.requestStatusReporte && (
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
 								Status Report
@@ -209,6 +209,29 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 									) : (
 										record.requestId
 									)}
+								</td>
+							)}
+							{visibleColumns.inDateRange && (
+								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+									<span className="flex items-center gap-2">
+										<span className={`w-2 h-2 rounded-full ${record.inDateRange ? 'bg-green-500' : 'bg-red-500'}`}></span>
+										{record.inDateRange ? "In Range" : "Out of Range"}
+									</span>
+								</td>
+							)}
+							{visibleColumns.rep && (
+								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+									{record.rep}
+								</td>
+							)}
+							{visibleColumns.dia && (
+								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+									{record.dia}
+								</td>
+							)}
+							{visibleColumns.week && (
+								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+									{record.week}
 								</td>
 							)}
 							{visibleColumns.applications && (
@@ -369,26 +392,6 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 							{visibleColumns.businessUnit && (
 								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
 									{record.businessUnit}
-								</td>
-							)}
-							{visibleColumns.semanal && (
-								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-									{record.semanal ? "Yes" : "No"}
-								</td>
-							)}
-							{visibleColumns.rep && (
-								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-									{record.rep}
-								</td>
-							)}
-							{visibleColumns.dia && (
-								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-									{record.dia}
-								</td>
-							)}
-							{visibleColumns.week && (
-								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-									{record.week}
 								</td>
 							)}
 							{visibleColumns.requestStatusReporte && (

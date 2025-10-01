@@ -3,8 +3,7 @@ import type {
 	ParentChildRelationship,
 } from "@app/core";
 import { createFileRoute } from "@tanstack/react-router";
-import { DateTime } from "luxon";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ColumnVisibilityControls from "@/components/ColumnVisibilityControls";
 import CorrectiveMaintenanceExcelImport from "@/components/CorrectiveMaintenanceExcelImport";
 import DataTable from "@/components/DataTable";
@@ -12,11 +11,19 @@ import EmptyState from "@/components/EmptyState";
 import ErrorState from "@/components/ErrorState";
 import FileUploadSection from "@/components/FileUploadSection";
 import FilterControls from "@/components/FilterControls";
+import L3SummaryTable from "@/components/L3SummaryTable";
 import LoadingState from "@/components/LoadingState";
 import MonthlyReportTable from "@/components/MonthlyReportTable";
 import ParentChildExcelImport from "@/components/ParentChildExcelImport";
 import RefreshButton from "@/components/RefreshButton";
+import SemanalDateRangeSettings from "@/components/SemanalDateRangeSettings";
+import SemanalFilter from "@/components/SemanalFilter";
 import TabNavigation from "@/components/TabNavigation";
+import WeeklyEvolutionTable, {
+	type AdditionalInfoStat,
+	type CategorizationStat,
+	type ModuleStat,
+} from "@/components/WeeklyEvolutionTable";
 import { getPreloadHandler } from "@/constants/preloadHandlers";
 import { formatEtaDate } from "@/utils/dateUtils";
 
@@ -35,6 +42,7 @@ type CorrectiveMaintenanceRecord = {
 	eta: string;
 	rca: string;
 	businessUnit: string;
+	inDateRange: boolean;
 };
 
 type MonthlyReportRecord = {
@@ -80,7 +88,7 @@ type MonthlyReportRecord = {
 	rejectedBy: string;
 	rejectedTime: string;
 	// Computed fields
-	semanal: boolean;
+	inDateRange: boolean;
 	rep: string;
 	dia: string;
 	week: string;
@@ -94,77 +102,6 @@ type MonthlyReportRecord = {
 	enlaces: number;
 	mensaje: string;
 };
-
-// Utility function to check if a date falls within the current week
-function isCurrentWeek(createdTime: string | Date | number): boolean {
-	try {
-		let parsedDate: DateTime | null = null;
-
-		// Handle different input types that might come from Excel
-		const input = createdTime;
-
-		// Check if it's already a Date object
-		if (input instanceof Date) {
-			parsedDate = DateTime.fromJSDate(input);
-		} else if (typeof input === "number" && !Number.isNaN(input)) {
-			// Handle Excel serial dates (number of days since Jan 1, 1900)
-			// Excel serial date 1 = Jan 1, 1900
-			const excelEpoch = DateTime.fromObject({
-				year: 1900,
-				month: 1,
-				day: 1,
-			});
-			parsedDate = excelEpoch.plus({ days: input - 1 }); // Subtract 1 because Excel considers 1900-01-01 as day 1
-		} else {
-			// Try parsing as string with various formats
-			const stringValue = String(input).trim();
-
-			// Common Excel date formats - prioritize the known format
-			const formats = [
-				"dd/MM/yyyy HH:mm", // Primary: European format like 22/09/2025 09:49
-				"dd/MM/yyyy H:mm", // Fallback: European format with single digit hour
-			];
-
-			for (const format of formats) {
-				const attempt = DateTime.fromFormat(stringValue, format, {
-					locale: "en",
-				});
-				if (attempt.isValid) {
-					parsedDate = attempt;
-					break;
-				}
-			}
-
-			// If format parsing fails, try native Date parsing
-			if (!parsedDate) {
-				const nativeDate = new Date(stringValue);
-				if (!Number.isNaN(nativeDate.getTime())) {
-					parsedDate = DateTime.fromJSDate(nativeDate);
-				}
-			}
-		}
-
-		if (!parsedDate || !parsedDate.isValid) {
-			console.warn(`Invalid date format: ${createdTime}`);
-			return false;
-		}
-
-		// Get current date and time
-		const now = DateTime.now();
-
-		// Get the start of the current week (Monday)
-		const startOfWeek = now.startOf("week");
-
-		// Get the end of the current week (Sunday)
-		const endOfWeek = now.endOf("week");
-
-		// Check if the created date falls within the current week
-		return parsedDate >= startOfWeek && parsedDate <= endOfWeek;
-	} catch (error) {
-		console.error(`Error parsing date: ${createdTime}`, error);
-		return false;
-	}
-}
 
 export const Route = createFileRoute("/weekly-report")({
 	component: WeeklyReportComponent,
@@ -211,9 +148,14 @@ function WeeklyReportComponent() {
 		string[]
 	>([]);
 
+	const [
+		availableMonthlyRequestStatuses,
+		setAvailableMonthlyRequestStatuses,
+	] = useState<string[]>([]);
+
 	const [visibleColumns, setVisibleColumns] = useState({
 		businessUnit: true,
-		paw: true,
+		inDateRange: true,
 		requestId: true,
 		createdTime: true,
 		applications: true,
@@ -239,12 +181,6 @@ function WeeklyReportComponent() {
 		useState<string | undefined>(undefined);
 	const [selectedMonthlyRequestStatus, setSelectedMonthlyRequestStatus] =
 		useState<string>("");
-	const [selectedMonthlyMonth, setSelectedMonthlyMonth] =
-		useState<string>("");
-	const [selectedMonthlyQuarter, setSelectedMonthlyQuarter] =
-		useState<string>("");
-	const [monthlyStartDate, setMonthlyStartDate] = useState<string>("");
-	const [monthlyEndDate, setMonthlyEndDate] = useState<string>("");
 	const [monthlyVisibleColumns, setMonthlyVisibleColumns] = useState<
 		Set<string>
 	>(
@@ -276,7 +212,7 @@ function WeeklyReportComponent() {
 			"release",
 			"rca",
 			"businessUnit",
-			"semanal",
+			"inDateRange",
 			"rep",
 			"dia",
 			"week",
@@ -286,6 +222,23 @@ function WeeklyReportComponent() {
 			"mensaje",
 		]),
 	);
+
+	// State for tracking semanal date range changes
+	const [semanalRangeChangedMessage, setSemanalRangeChangedMessage] =
+		useState<string | null>(null);
+
+	// State for semanal filtering - default to 'inRange' to show only records within the semanal range
+	const [semanalFilterMode, setSemanalFilterMode] = useState<
+		"inRange" | "outOfRange" | "showAll"
+	>("inRange");
+
+	// State for corrective maintenance semanal filtering
+	const [correctiveSemanalFilterMode, setCorrectiveSemanalFilterMode] =
+		useState<"inRange" | "outOfRange" | "showAll">("inRange");
+	const [
+		correctiveSemanalRangeChangedMessage,
+		setCorrectiveSemanalRangeChangedMessage,
+	] = useState<string | null>(null);
 
 	const tableRef = useRef<HTMLTableElement>(null);
 	const correctiveMaintenanceTableRef = useRef<HTMLTableElement>(null);
@@ -391,6 +344,26 @@ function WeeklyReportComponent() {
 		}
 	}, []);
 
+	const loadDistinctMonthlyRequestStatuses = useCallback(async () => {
+		try {
+			const handler = getPreloadHandler(
+				"getDistinctMonthlyRequestStatusReporte",
+			);
+			const statuses = (await handler()) as string[];
+			setAvailableMonthlyRequestStatuses(statuses);
+			console.log(
+				"Loaded distinct monthly request statuses reporte:",
+				statuses,
+			);
+		} catch (err) {
+			console.error(
+				"Failed to load distinct monthly request statuses reporte:",
+				err,
+			);
+			// Don't set main error state for this
+		}
+	}, []);
+
 	// Load corrective maintenance data when selectedBusinessUnit or selectedRequestStatus changes
 	useEffect(() => {
 		if (activeTab === "corrective-maintenance") {
@@ -401,7 +374,8 @@ function WeeklyReportComponent() {
 	// Load distinct request statuses on component mount
 	useEffect(() => {
 		loadDistinctRequestStatuses();
-	}, [loadDistinctRequestStatuses]);
+		loadDistinctMonthlyRequestStatuses();
+	}, [loadDistinctRequestStatuses, loadDistinctMonthlyRequestStatuses]);
 
 	const translateCorrectiveMaintenanceData = useCallback(async () => {
 		if (correctiveMaintenanceData.length === 0) {
@@ -470,11 +444,13 @@ function WeeklyReportComponent() {
 		loadAggregatedData();
 		loadCorrectiveMaintenanceData();
 		loadDistinctRequestStatuses();
+		loadDistinctMonthlyRequestStatuses();
 	}, [
 		loadRelationships,
 		loadAggregatedData,
 		loadCorrectiveMaintenanceData,
 		loadDistinctRequestStatuses,
+		loadDistinctMonthlyRequestStatuses,
 	]);
 
 	const handleExternalLink = async (url: string) => {
@@ -591,7 +567,7 @@ function WeeklyReportComponent() {
 			let headerText = "";
 			const columnOrder = [
 				{ key: "businessUnit", label: "Business Unit" },
-				{ key: "paw", label: "PAW (Pending Actual Week)" },
+				{ key: "inDateRange", label: "In Date Range" },
 				{ key: "requestId", label: "Request ID" },
 				{ key: "createdTime", label: "Created Time" },
 				{ key: "applications", label: "Applications" },
@@ -685,12 +661,12 @@ function WeeklyReportComponent() {
 				const handler = getPreloadHandler(
 					"getMonthlyReportRecordsByBusinessUnit",
 				);
-				result = (await handler(selectedMonthlyBusinessUnit)) as MonthlyReportResult;
+				result = (await handler(
+					selectedMonthlyBusinessUnit,
+				)) as MonthlyReportResult;
 			} else {
 				// Load all records when no filter is selected
-				const handler = getPreloadHandler(
-					"getAllMonthlyReportRecords",
-				);
+				const handler = getPreloadHandler("getAllMonthlyReportRecords");
 				result = (await handler()) as MonthlyReportResult;
 			}
 
@@ -722,6 +698,8 @@ function WeeklyReportComponent() {
 
 				if (result.success) {
 					await loadMonthlyReportRecords(); // Refresh the data
+					await loadDistinctMonthlyRequestStatuses(); // Refresh filter options
+					setSemanalRangeChangedMessage(null); // Clear warning message after successful Excel reload
 				} else {
 					setMonthlyReportError(
 						result.error || "Failed to parse Excel file",
@@ -737,213 +715,7 @@ function WeeklyReportComponent() {
 				setMonthlyReportLoading(false);
 			}
 		},
-		[loadMonthlyReportRecords],
-	);
-
-	const handleMonthlyBusinessUnitFilter = useCallback(
-		async (businessUnit: string) => {
-			setSelectedMonthlyBusinessUnit(businessUnit);
-			setMonthlyReportLoading(true);
-			setMonthlyReportError(null);
-
-			try {
-				const result = (await getPreloadHandler(
-					"getMonthlyReportRecordsByBusinessUnit",
-				)(businessUnit)) as MonthlyReportResult;
-
-				if (result.success) {
-					setMonthlyReportRecords(result.data || []);
-				} else {
-					setMonthlyReportError(
-						result.error || "Failed to filter records",
-					);
-				}
-			} catch (err) {
-				setMonthlyReportError(
-					err instanceof Error
-						? err.message
-						: "Unknown error occurred",
-				);
-			} finally {
-				setMonthlyReportLoading(false);
-			}
-		},
-		[],
-	);
-
-	const handleMonthlyRequestStatusFilter = useCallback(
-		async (requestStatus: string) => {
-			setSelectedMonthlyRequestStatus(requestStatus);
-			setMonthlyReportLoading(true);
-			setMonthlyReportError(null);
-
-			try {
-				const result = (await getPreloadHandler(
-					"getMonthlyReportRecordsByRequestStatus",
-				)(requestStatus)) as MonthlyReportResult;
-
-				if (result.success) {
-					setMonthlyReportRecords(result.data || []);
-				} else {
-					setMonthlyReportError(
-						result.error || "Failed to filter records",
-					);
-				}
-			} catch (err) {
-				setMonthlyReportError(
-					err instanceof Error
-						? err.message
-						: "Unknown error occurred",
-				);
-			} finally {
-				setMonthlyReportLoading(false);
-			}
-		},
-		[],
-	);
-
-	const handleMonthlyMonthFilter = useCallback(async (month: string) => {
-		setSelectedMonthlyMonth(month);
-		setMonthlyReportLoading(true);
-		setMonthlyReportError(null);
-
-		try {
-			const result = (await getPreloadHandler(
-				"getMonthlyReportRecordsByMonth",
-			)(month)) as MonthlyReportResult;
-
-			if (result.success) {
-				setMonthlyReportRecords(result.data || []);
-			} else {
-				setMonthlyReportError(
-					result.error || "Failed to filter records",
-				);
-			}
-		} catch (err) {
-			setMonthlyReportError(
-				err instanceof Error ? err.message : "Unknown error occurred",
-			);
-		} finally {
-			setMonthlyReportLoading(false);
-		}
-	}, []);
-
-	const handleMonthlyQuarterFilter = useCallback(async (quarter: string) => {
-		setSelectedMonthlyQuarter(quarter);
-		setMonthlyReportLoading(true);
-		setMonthlyReportError(null);
-
-		try {
-			const result = (await getPreloadHandler(
-				"getMonthlyReportRecordsByQuarter",
-			)(quarter)) as MonthlyReportResult;
-
-			if (result.success) {
-				setMonthlyReportRecords(result.data || []);
-			} else {
-				setMonthlyReportError(
-					result.error || "Failed to filter records",
-				);
-			}
-		} catch (err) {
-			setMonthlyReportError(
-				err instanceof Error ? err.message : "Unknown error occurred",
-			);
-		} finally {
-			setMonthlyReportLoading(false);
-		}
-	}, []);
-
-	const handleMonthlyDateRangeFilter = useCallback(
-		async (start: string, end: string) => {
-			setMonthlyStartDate(start);
-			setMonthlyEndDate(end);
-			setMonthlyReportLoading(true);
-			setMonthlyReportError(null);
-
-			try {
-				const result = (await getPreloadHandler(
-					"getMonthlyReportRecordsByDateRange",
-				)(start, end)) as MonthlyReportResult;
-
-				if (result.success) {
-					setMonthlyReportRecords(result.data || []);
-				} else {
-					setMonthlyReportError(
-						result.error || "Failed to filter records",
-					);
-				}
-			} catch (err) {
-				setMonthlyReportError(
-					err instanceof Error
-						? err.message
-						: "Unknown error occurred",
-				);
-			} finally {
-				setMonthlyReportLoading(false);
-			}
-		},
-		[],
-	);
-
-	const clearMonthlyFilters = useCallback(() => {
-		setSelectedMonthlyBusinessUnit("");
-		setSelectedMonthlyRequestStatus("");
-		setSelectedMonthlyMonth("");
-		setSelectedMonthlyQuarter("");
-		setMonthlyStartDate("");
-		setMonthlyEndDate("");
-		loadMonthlyReportRecords();
-	}, [loadMonthlyReportRecords]);
-
-	const handleMonthlyStatusUpdate = useCallback(
-		async (requestId: string, newStatus: string) => {
-			try {
-				const result = (await getPreloadHandler(
-					"updateMonthlyReportRecordStatus",
-				)(requestId, newStatus)) as MonthlyReportResult;
-
-				if (result.success) {
-					await loadMonthlyReportRecords(); // Refresh the data
-				} else {
-					setMonthlyReportError(
-						result.error || "Failed to update status",
-					);
-				}
-			} catch (err) {
-				setMonthlyReportError(
-					err instanceof Error
-						? err.message
-						: "Unknown error occurred",
-				);
-			}
-		},
-		[loadMonthlyReportRecords],
-	);
-
-	const handleMonthlyEnlacesUpdate = useCallback(
-		async (requestId: string, enlacesCount: number) => {
-			try {
-				const result = (await getPreloadHandler(
-					"updateMonthlyReportEnlacesCounts",
-				)(requestId, enlacesCount)) as MonthlyReportResult;
-
-				if (result.success) {
-					await loadMonthlyReportRecords(); // Refresh the data
-				} else {
-					setMonthlyReportError(
-						result.error || "Failed to update enlaces count",
-					);
-				}
-			} catch (err) {
-				setMonthlyReportError(
-					err instanceof Error
-						? err.message
-						: "Unknown error occurred",
-				);
-			}
-		},
-		[loadMonthlyReportRecords],
+		[loadMonthlyReportRecords, loadDistinctMonthlyRequestStatuses],
 	);
 
 	// Load monthly report data when monthly-report-data tab is active or filter changes
@@ -954,15 +726,281 @@ function WeeklyReportComponent() {
 	}, [activeTab, selectedMonthlyBusinessUnit, loadMonthlyReportRecords]);
 
 	// Convert Set to Record for component compatibility
-	const monthlyVisibleColumnsRecord = Array.from(
-		monthlyVisibleColumns,
-	).reduce(
+	// Include ALL possible columns, setting them to true/false based on Set membership
+	const allMonthlyColumns = [
+		"requestId",
+		"applications",
+		"categorization",
+		"createdTime",
+		"requestStatus",
+		"module",
+		"subject",
+		"priority",
+		"priorityReporte",
+		"eta",
+		"additionalInfo",
+		"resolvedTime",
+		"affectedCountries",
+		"recurrence",
+		"technician",
+		"jira",
+		"problemId",
+		"linkedRequestId",
+		"requestOLAStatus",
+		"escalationGroup",
+		"affectedApplications",
+		"shouldResolveLevel1",
+		"campaign",
+		"cuv1",
+		"release",
+		"rca",
+		"businessUnit",
+		"inDateRange",
+		"rep",
+		"dia",
+		"week",
+		"requestStatusReporte",
+		"informacionAdicionalReporte",
+		"enlaces",
+		"mensaje",
+	];
+	const monthlyVisibleColumnsRecord = allMonthlyColumns.reduce(
 		(acc, col) => {
-			acc[col] = true;
+			acc[col] = monthlyVisibleColumns.has(col);
 			return acc;
 		},
 		{} as Record<string, boolean>,
 	);
+
+	// Apply request status filter (for main table and semanal counts)
+	const baseFilteredMonthlyRecords = useMemo(() => {
+		let filtered = monthlyReportRecords;
+		if (
+			selectedMonthlyRequestStatus &&
+			selectedMonthlyRequestStatus !== ""
+		) {
+			filtered = filtered.filter(
+				(r) => r.requestStatusReporte === selectedMonthlyRequestStatus,
+			);
+		}
+		return filtered;
+	}, [monthlyReportRecords, selectedMonthlyRequestStatus]);
+
+	// Filter monthly report records based on semanal filter mode
+	const filteredMonthlyRecords = useMemo(() => {
+		// Apply semanal filter on top of request status filter
+		switch (semanalFilterMode) {
+			case "inRange":
+				return baseFilteredMonthlyRecords.filter(
+					(r) => r.inDateRange === true,
+				);
+			case "outOfRange":
+				return baseFilteredMonthlyRecords.filter(
+					(r) => r.inDateRange === false,
+				);
+			case "showAll":
+				return baseFilteredMonthlyRecords;
+			default:
+				return baseFilteredMonthlyRecords.filter(
+					(r) => r.inDateRange === true,
+				);
+		}
+	}, [baseFilteredMonthlyRecords, semanalFilterMode]);
+
+	// Calculate counts for the semanal filter component
+	const semanalCounts = useMemo(() => {
+		const inRangeCount = baseFilteredMonthlyRecords.filter(
+			(r) => r.inDateRange === true,
+		).length;
+		const outOfRangeCount = baseFilteredMonthlyRecords.filter(
+			(r) => r.inDateRange === false,
+		).length;
+		const totalCount = baseFilteredMonthlyRecords.length;
+
+		return { inRangeCount, outOfRangeCount, totalCount };
+	}, [baseFilteredMonthlyRecords]);
+
+	// Filter corrective maintenance records based on semanal filter mode
+	const filteredCorrectiveRecords = useMemo(() => {
+		const records =
+			translatedCorrectiveMaintenanceData.length > 0
+				? translatedCorrectiveMaintenanceData
+				: correctiveMaintenanceData;
+
+		switch (correctiveSemanalFilterMode) {
+			case "inRange":
+				return records.filter((r) => r.inDateRange === true);
+			case "outOfRange":
+				return records.filter((r) => r.inDateRange === false);
+			case "showAll":
+				return records;
+			default:
+				return records.filter((r) => r.inDateRange === true); // Default to in range
+		}
+	}, [
+		correctiveMaintenanceData,
+		translatedCorrectiveMaintenanceData,
+		correctiveSemanalFilterMode,
+	]);
+
+	// Calculate counts for corrective maintenance semanal filter
+	const correctiveSemanalCounts = useMemo(() => {
+		const records =
+			translatedCorrectiveMaintenanceData.length > 0
+				? translatedCorrectiveMaintenanceData
+				: correctiveMaintenanceData;
+
+		const inRangeCount = records.filter(
+			(r) => r.inDateRange === true,
+		).length;
+		const outOfRangeCount = records.filter(
+			(r) => r.inDateRange === false,
+		).length;
+		const totalCount = records.length;
+
+		return { inRangeCount, outOfRangeCount, totalCount };
+	}, [correctiveMaintenanceData, translatedCorrectiveMaintenanceData]);
+
+	// Calculate module statistics for Weekly Evolution of Incidents
+	const moduleStats = useMemo(() => {
+		// Filter by business unit and semanal mode (ignore request status)
+		let filteredRecords = monthlyReportRecords;
+
+		if (selectedMonthlyBusinessUnit) {
+			filteredRecords = filteredRecords.filter(
+				(r) => r.businessUnit === selectedMonthlyBusinessUnit,
+			);
+		}
+
+		// Respect semanal filter mode
+		switch (semanalFilterMode) {
+			case "inRange":
+				filteredRecords = filteredRecords.filter(
+					(r) => r.inDateRange === true,
+				);
+				break;
+			case "outOfRange":
+				filteredRecords = filteredRecords.filter(
+					(r) => r.inDateRange === false,
+				);
+				break;
+			case "showAll":
+				// Show all dates
+				break;
+			default:
+				filteredRecords = filteredRecords.filter(
+					(r) => r.inDateRange === true,
+				);
+		}
+
+		// Group by module, categorization, and additional info
+		const moduleData = new Map<
+			string,
+			Map<string, Map<string, { count: number; mensajes: Set<string> }>>
+		>();
+
+		filteredRecords.forEach((record) => {
+			const module = record.module || "Unknown";
+			const categorization = record.categorization || "Unknown";
+			const additionalInfo =
+				record.informacionAdicionalReporte &&
+				record.informacionAdicionalReporte !== "No asignado"
+					? record.informacionAdicionalReporte
+					: record.requestStatusReporte || "No additional info";
+
+			if (!moduleData.has(module)) {
+				moduleData.set(
+					module,
+					new Map<
+						string,
+						Map<string, { count: number; mensajes: Set<string> }>
+					>(),
+				);
+			}
+
+			const categorizationMap = moduleData.get(module)!;
+			if (!categorizationMap.has(categorization)) {
+				categorizationMap.set(
+					categorization,
+					new Map<string, { count: number; mensajes: Set<string> }>(),
+				);
+			}
+
+			const additionalInfoMap = categorizationMap.get(categorization)!;
+			const current = additionalInfoMap.get(additionalInfo) || {
+				count: 0,
+				mensajes: new Set<string>(),
+			};
+
+			// Add the mensaje to the set only if we're using the original informacionAdicionalReporte (not the fallback)
+			const isUsingFallback =
+				!record.informacionAdicionalReporte ||
+				record.informacionAdicionalReporte === "No asignado";
+			if (!isUsingFallback && record.mensaje && record.mensaje.trim()) {
+				current.mensajes.add(record.mensaje.trim());
+			}
+
+			additionalInfoMap.set(additionalInfo, {
+				count: current.count + 1,
+				mensajes: current.mensajes,
+			});
+		});
+
+		// Calculate total and convert to array with percentages and categorization breakdown
+		const totalCount = filteredRecords.length;
+		const stats: ModuleStat[] = Array.from(moduleData.entries())
+			.map(([module, categorizationMap]) => {
+				const moduleCount = Array.from(
+					categorizationMap.values(),
+				).reduce(
+					(sum, additionalInfoMap) =>
+						sum +
+						Array.from(additionalInfoMap.values()).reduce(
+							(infoSum, data) => infoSum + data.count,
+							0,
+						),
+					0,
+				);
+
+				const categorizations: CategorizationStat[] = Array.from(
+					categorizationMap.entries(),
+				)
+					.map(([name, additionalInfoMap]) => {
+						const categorizationCount = Array.from(
+							additionalInfoMap.values(),
+						).reduce((sum, data) => sum + data.count, 0);
+
+						const additionalInfos: AdditionalInfoStat[] =
+							Array.from(additionalInfoMap.entries())
+								.map(([info, data]) => ({
+									info,
+									count: data.count,
+									mensaje: Array.from(data.mensajes).join(
+										", ",
+									),
+								}))
+								.sort((a, b) => b.count - a.count); // Sort additional infos by count descending
+
+						return {
+							name,
+							count: categorizationCount,
+							additionalInfos,
+						};
+					})
+					.sort((a, b) => b.count - a.count); // Sort categorizations by count descending
+
+				return {
+					module,
+					count: moduleCount,
+					percentage:
+						totalCount > 0 ? (moduleCount / totalCount) * 100 : 0,
+					categorizations,
+				};
+			})
+			.sort((a, b) => b.count - a.count); // Sort modules by count descending
+
+		return stats;
+	}, [monthlyReportRecords, selectedMonthlyBusinessUnit, semanalFilterMode]);
 
 	const handleMonthlyColumnVisibilityChange = useCallback(
 		(columnKey: string, isVisible: boolean) => {
@@ -982,7 +1020,7 @@ function WeeklyReportComponent() {
 	if (loading) {
 		return (
 			<div className="container mx-auto px-4 py-8">
-				<div className="max-w-6xl mx-auto">
+				<div className="max-w-7xl mx-auto">
 					<h1 className="text-3xl font-bold text-gray-800 mb-6">
 						Weekly Report
 					</h1>
@@ -995,7 +1033,7 @@ function WeeklyReportComponent() {
 	if (error) {
 		return (
 			<div className="container mx-auto px-4 py-8">
-				<div className="max-w-6xl mx-auto">
+				<div className="max-w-7xl mx-auto">
 					<h1 className="text-3xl font-bold text-gray-800 mb-6">
 						Weekly Report
 					</h1>
@@ -1010,23 +1048,10 @@ function WeeklyReportComponent() {
 
 	return (
 		<div className="container mx-auto px-4 py-8">
-			<div className="max-w-6xl mx-auto">
+			<div className="max-w-7xl mx-auto">
 				<h1 className="text-3xl font-bold text-gray-800 mb-6">
-					Weekly Report - Parent Child Relationships
+					Weekly Report
 				</h1>
-
-				{/* File Upload Section */}
-				<FileUploadSection
-					title="Upload Parent-Child Report"
-					description="Upload an Excel file to parse and save parent-child relationship data"
-				>
-					<ParentChildExcelImport
-						onSuccess={() => {
-							loadRelationships();
-							loadAggregatedData();
-						}}
-					/>
-				</FileUploadSection>
 
 				{/* Tab Navigation */}
 				<TabNavigation
@@ -1039,7 +1064,7 @@ function WeeklyReportComponent() {
 							| "corrective-maintenance",
 					) => setActiveTab(tab)}
 					tabs={[
-						{ id: "raw-data", label: "Raw Data" },
+						{ id: "raw-data", label: "Parent-Child Relationships" },
 						{ id: "aggregated-data", label: "Aggregated Data" },
 						{
 							id: "monthly-report-data",
@@ -1054,100 +1079,121 @@ function WeeklyReportComponent() {
 
 				{/* Tab Content */}
 				{activeTab === "raw-data" && (
-					<div className="bg-white rounded-lg shadow-md">
-						<div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-							<div>
-								<h3 className="text-lg font-medium text-gray-900">
-									Parent-Child Relationships
-								</h3>
-								<p className="text-sm text-gray-500">
-									{relationships.length} relationship
-									{relationships.length !== 1 ? "s" : ""}{" "}
-									found
-								</p>
+					<div className="space-y-6">
+						{/* File Upload Section */}
+						<FileUploadSection
+							title="Upload Parent-Child Report"
+							description="Upload an Excel file to parse and save parent-child relationship data"
+						>
+							<ParentChildExcelImport
+								onSuccess={() => {
+									loadRelationships();
+									loadAggregatedData();
+								}}
+							/>
+						</FileUploadSection>
+
+						<div className="bg-white rounded-lg shadow-md">
+							<div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+								<div>
+									<h3 className="text-lg font-medium text-gray-900">
+										Parent-Child Relationships
+									</h3>
+									<p className="text-sm text-gray-500">
+										{relationships.length} relationship
+										{relationships.length !== 1 ? "s" : ""}{" "}
+										found
+									</p>
+								</div>
+								<RefreshButton
+									onClick={loadRelationships}
+									loading={loading}
+								/>
 							</div>
-							<RefreshButton
-								onClick={loadRelationships}
-								loading={loading}
-							/>
+							{relationships.length > 0 ? (
+								<DataTable
+									data={relationships}
+									columns={[
+										{
+											key: "parentRequestId",
+											label: "Parent Request ID",
+											render: (value, row) =>
+												(row as any).parentLink ? (
+													<button
+														type="button"
+														onClick={() =>
+															(row as any)
+																.parentLink &&
+															handleExternalLink(
+																(row as any)
+																	.parentLink,
+															)
+														}
+														className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0"
+													>
+														{value as string}
+													</button>
+												) : (
+													(value as string)
+												),
+										},
+										{
+											key: "childRequestId",
+											label: "Child Request ID",
+											render: (value, row) =>
+												(row as any).childLink ? (
+													<button
+														type="button"
+														onClick={() =>
+															(row as any)
+																.childLink &&
+															handleExternalLink(
+																(row as any)
+																	.childLink,
+															)
+														}
+														className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0"
+													>
+														{value as string}
+													</button>
+												) : (
+													(value as string)
+												),
+										},
+										{
+											key: "createdAt",
+											label: "Created At",
+											render: (value) =>
+												new Date(
+													value as
+														| string
+														| number
+														| Date,
+												).toLocaleString(),
+										},
+										{
+											key: "updatedAt",
+											label: "Updated At",
+											render: (value) =>
+												new Date(
+													value as
+														| string
+														| number
+														| Date,
+												).toLocaleString(),
+										},
+									]}
+									getRowKey={(row, index) =>
+										`${row.parentRequestId}-${row.childRequestId}-${index}`
+									}
+								/>
+							) : (
+								<EmptyState
+									title="No relationships found"
+									description="Upload an Excel file to get started with parent-child relationship data."
+								/>
+							)}
 						</div>
-						{relationships.length > 0 ? (
-							<DataTable
-								data={relationships}
-								columns={[
-									{
-										key: "parentRequestId",
-										label: "Parent Request ID",
-										render: (value, row) =>
-											(row as any).parentLink ? (
-												<button
-													type="button"
-													onClick={() =>
-														(row as any)
-															.parentLink &&
-														handleExternalLink(
-															(row as any)
-																.parentLink,
-														)
-													}
-													className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0"
-												>
-													{value as string}
-												</button>
-											) : (
-												(value as string)
-											),
-									},
-									{
-										key: "childRequestId",
-										label: "Child Request ID",
-										render: (value, row) =>
-											(row as any).childLink ? (
-												<button
-													type="button"
-													onClick={() =>
-														(row as any)
-															.childLink &&
-														handleExternalLink(
-															(row as any)
-																.childLink,
-														)
-													}
-													className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer bg-transparent border-none p-0"
-												>
-													{value as string}
-												</button>
-											) : (
-												(value as string)
-											),
-									},
-									{
-										key: "createdAt",
-										label: "Created At",
-										render: (value) =>
-											new Date(
-												value as string | number | Date,
-											).toLocaleString(),
-									},
-									{
-										key: "updatedAt",
-										label: "Updated At",
-										render: (value) =>
-											new Date(
-												value as string | number | Date,
-											).toLocaleString(),
-									},
-								]}
-								getRowKey={(row, index) =>
-									`${row.parentRequestId}-${row.childRequestId}-${index}`
-								}
-							/>
-						) : (
-							<EmptyState
-								title="No relationships found"
-								description="Upload an Excel file to get started with parent-child relationship data."
-							/>
-						)}
 					</div>
 				)}
 
@@ -1249,6 +1295,47 @@ function WeeklyReportComponent() {
 
 				{activeTab === "monthly-report-data" && (
 					<div className="mt-4">
+						{/* Semanal Date Range Settings */}
+						<div className="mb-6">
+							<SemanalDateRangeSettings
+								onSettingsChange={(message) =>
+									setSemanalRangeChangedMessage(message)
+								}
+							/>
+						</div>
+
+						{/* Warning message when semanal range has been changed */}
+						{semanalRangeChangedMessage && (
+							<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+								<div className="flex items-start">
+									<div className="flex-shrink-0">
+										<svg
+											className="h-5 w-5 text-yellow-400"
+											fill="currentColor"
+											viewBox="0 0 20 20"
+										>
+											<path
+												fillRule="evenodd"
+												d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+												clipRule="evenodd"
+											/>
+										</svg>
+									</div>
+									<div className="ml-3">
+										<h3 className="text-sm font-medium text-yellow-800">
+											Excel Reload Required
+										</h3>
+										<p className="mt-1 text-sm text-yellow-700">
+											{semanalRangeChangedMessage} Please
+											upload your Excel file again to
+											reflect the new Semanal calculation
+											range.
+										</p>
+									</div>
+								</div>
+							</div>
+						)}
+
 						<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
 							<FileUploadSection
 								title="Upload Monthly Report Excel File"
@@ -1299,27 +1386,65 @@ function WeeklyReportComponent() {
 									"CD",
 									"PROL",
 								]}
-								selectedBusinessUnit={selectedMonthlyBusinessUnit}
-								onBusinessUnitChange={setSelectedMonthlyBusinessUnit}
-								requestStatuses={[]}  // No request status filter for monthly reports
-								selectedRequestStatus=""
-								onRequestStatusChange={() => {}}
+								selectedBusinessUnit={
+									selectedMonthlyBusinessUnit
+								}
+								onBusinessUnitChange={
+									setSelectedMonthlyBusinessUnit
+								}
+								requestStatuses={
+									availableMonthlyRequestStatuses
+								}
+								selectedRequestStatus={
+									selectedMonthlyRequestStatus
+								}
+								onRequestStatusChange={
+									setSelectedMonthlyRequestStatus
+								}
 							/>
 
-							{monthlyReportRecords.length === 0 ? (
+							{/* Semanal Range Filter */}
+							<SemanalFilter
+								filterMode={semanalFilterMode}
+								onFilterModeChange={setSemanalFilterMode}
+								inRangeCount={semanalCounts.inRangeCount}
+								outOfRangeCount={semanalCounts.outOfRangeCount}
+								totalCount={semanalCounts.totalCount}
+							/>
+
+							{filteredMonthlyRecords.length === 0 ? (
 								<EmptyState
 									title="No Monthly Report Records"
-									description="Upload an Excel file to get started with monthly report data processing"
+									description={
+										monthlyReportRecords.length === 0
+											? "Upload an Excel file to get started with monthly report data processing"
+											: "No records match the current filter criteria"
+									}
 								/>
 							) : (
-								<MonthlyReportTable
-									records={monthlyReportRecords}
-									visibleColumns={monthlyVisibleColumnsRecord}
-									onOpenExternal={(url) => {
-										const handler = getPreloadHandler("openExternal");
-										handler(url);
-									}}
-								/>
+								<>
+									<MonthlyReportTable
+										records={filteredMonthlyRecords}
+										visibleColumns={
+											monthlyVisibleColumnsRecord
+										}
+										onOpenExternal={(url) => {
+											const handler =
+												getPreloadHandler(
+													"openExternal",
+												);
+											handler(url);
+										}}
+									/>
+
+									{/* Weekly Evolution of Incidents Table */}
+									<WeeklyEvolutionTable
+										moduleStats={moduleStats}
+										businessUnit={
+											selectedMonthlyBusinessUnit
+										}
+									/>
+								</>
 							)}
 						</div>
 					</div>
@@ -1327,6 +1452,71 @@ function WeeklyReportComponent() {
 
 				{activeTab === "corrective-maintenance" && (
 					<div className="mt-4">
+						{/* Semanal Date Range Settings */}
+						<div className="mb-6">
+							<SemanalDateRangeSettings
+								onSettingsChange={(message) =>
+									setCorrectiveSemanalRangeChangedMessage(
+										message,
+									)
+								}
+							/>
+						</div>
+
+						{/* Warning message when semanal range has been changed */}
+						{correctiveSemanalRangeChangedMessage && (
+							<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+								<div className="flex items-start">
+									<svg
+										className="h-5 w-5 text-yellow-400 mt-0.5"
+										fill="currentColor"
+										viewBox="0 0 20 20"
+									>
+										<path
+											fillRule="evenodd"
+											d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+											clipRule="evenodd"
+										/>
+									</svg>
+									<div className="ml-3 flex-1">
+										<h3 className="text-sm font-medium text-yellow-800">
+											Excel Reload Required
+										</h3>
+										<p className="mt-1 text-sm text-yellow-700">
+											{
+												correctiveSemanalRangeChangedMessage
+											}{" "}
+											Please upload your Excel file again
+											to reflect the new Semanal
+											calculation range.
+										</p>
+									</div>
+									<button
+										type="button"
+										onClick={() =>
+											setCorrectiveSemanalRangeChangedMessage(
+												null,
+											)
+										}
+										className="ml-3 inline-flex text-yellow-400 hover:text-yellow-500 focus:outline-none"
+									>
+										<span className="sr-only">Dismiss</span>
+										<svg
+											className="h-5 w-5"
+											viewBox="0 0 20 20"
+											fill="currentColor"
+										>
+											<path
+												fillRule="evenodd"
+												d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+												clipRule="evenodd"
+											/>
+										</svg>
+									</button>
+								</div>
+							</div>
+						)}
+
 						<div className="flex justify-between items-center mb-4">
 							<div>
 								<h3 className="text-lg font-medium text-gray-900">
@@ -1445,7 +1635,19 @@ function WeeklyReportComponent() {
 							requestStatuses={availableRequestStatuses}
 							selectedRequestStatus={selectedRequestStatus}
 							onRequestStatusChange={setSelectedRequestStatus}
-						/>{" "}
+						/>
+
+						{/* Semanal Range Filter */}
+						<SemanalFilter
+							filterMode={correctiveSemanalFilterMode}
+							onFilterModeChange={setCorrectiveSemanalFilterMode}
+							inRangeCount={correctiveSemanalCounts.inRangeCount}
+							outOfRangeCount={
+								correctiveSemanalCounts.outOfRangeCount
+							}
+							totalCount={correctiveSemanalCounts.totalCount}
+						/>
+
 						{/* Column Visibility Controls */}
 						<ColumnVisibilityControls
 							columns={visibleColumns}
@@ -1460,7 +1662,7 @@ function WeeklyReportComponent() {
 							}}
 						/>
 						<div className="overflow-x-auto">
-							{correctiveMaintenanceData.length > 0 ? (
+							{filteredCorrectiveRecords.length > 0 ? (
 								<table
 									ref={correctiveMaintenanceTableRef}
 									className="min-w-full divide-y divide-gray-200"
@@ -1472,9 +1674,9 @@ function WeeklyReportComponent() {
 													Business Unit
 												</th>
 											)}
-											{visibleColumns.paw && (
+											{visibleColumns.inDateRange && (
 												<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-													PAW (Pending Actual Week)
+													In Date Range
 												</th>
 											)}
 											{visibleColumns.requestId && (
@@ -1535,191 +1737,206 @@ function WeeklyReportComponent() {
 										</tr>
 									</thead>
 									<tbody className="bg-white divide-y divide-gray-200">
-										{(translatedCorrectiveMaintenanceData.length >
-										0
-											? translatedCorrectiveMaintenanceData
-											: correctiveMaintenanceData
-										).map((record, index) => (
-											<tr key={record.requestId || index}>
-												{visibleColumns.businessUnit && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.businessUnit}
-													</td>
-												)}
-												{visibleColumns.paw && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{isCurrentWeek(
-															record.createdTime,
-														) ? (
-															<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-																<svg
-																	className="w-4 h-4 mr-1"
-																	fill="currentColor"
-																	viewBox="0 0 20 20"
-																	role="img"
-																	aria-labelledby="check-icon"
-																>
-																	<title id="check-icon">
-																		Yes
-																	</title>
-																	<path
-																		fillRule="evenodd"
-																		d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-																		clipRule="evenodd"
-																	/>
-																</svg>
-																Yes
-															</span>
-														) : (
-															<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-																<svg
-																	className="w-4 h-4 mr-1"
-																	fill="currentColor"
-																	viewBox="0 0 20 20"
-																	role="img"
-																	aria-labelledby="x-icon"
-																>
-																	<title id="x-icon">
-																		No
-																	</title>
-																	<path
-																		fillRule="evenodd"
-																		d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-																		clipRule="evenodd"
-																	/>
-																</svg>
-																No
-															</span>
-														)}
-													</td>
-												)}
-												{visibleColumns.requestId && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.requestIdLink ? (
-															<button
-																type="button"
-																onClick={() => {
-																	if (
-																		record.requestIdLink
-																	) {
-																		const handler =
-																			getPreloadHandler(
-																				"openExternal",
-																			);
-																		handler(
-																			record.requestIdLink,
-																		);
-																	}
-																}}
-																className="text-blue-600 hover:text-blue-800 underline"
-															>
-																{
-																	record.requestId
-																}
-															</button>
-														) : (
-															record.requestId
-														)}
-													</td>
-												)}
-												{visibleColumns.createdTime && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.createdTime}
-													</td>
-												)}
-												{visibleColumns.applications && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.applications}
-													</td>
-												)}
-												{visibleColumns.categorization && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.categorization}
-													</td>
-												)}
-												{visibleColumns.requestStatus && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.requestStatus}
-													</td>
-												)}
-												{visibleColumns.module && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.module}
-													</td>
-												)}
-												{visibleColumns.subject && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.subjectLink ? (
-															<button
-																type="button"
-																onClick={() => {
-																	if (
-																		record.subjectLink
-																	) {
-																		const handler =
-																			getPreloadHandler(
-																				"openExternal",
-																			);
-																		handler(
-																			record.subjectLink,
-																		);
-																	}
-																}}
-																className="text-blue-600 hover:text-blue-800 underline"
-															>
-																{record.subject}
-															</button>
-														) : (
-															record.subject
-														)}
-													</td>
-												)}
-												{visibleColumns.priority && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.priority}
-													</td>
-												)}
-												{visibleColumns.enlaces && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.enlaces}
-													</td>
-												)}
-												{visibleColumns.eta && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{(() => {
-															const etaFormatted =
-																formatEtaDate(
-																	record.eta,
-																);
-															return etaFormatted.original ? (
-																<span
-																	title={
-																		etaFormatted.original
-																	}
-																>
-																	{
-																		etaFormatted.display
-																	}
+										{filteredCorrectiveRecords.map(
+											(record, index) => (
+												<tr
+													key={
+														record.requestId ||
+														index
+													}
+												>
+													{visibleColumns.businessUnit && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{
+																record.businessUnit
+															}
+														</td>
+													)}
+													{visibleColumns.inDateRange && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.inDateRange ? (
+																<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+																	<svg
+																		className="w-4 h-4 mr-1"
+																		fill="currentColor"
+																		viewBox="0 0 20 20"
+																		role="img"
+																		aria-labelledby="check-icon"
+																	>
+																		<title id="check-icon">
+																			Yes
+																		</title>
+																		<path
+																			fillRule="evenodd"
+																			d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+																			clipRule="evenodd"
+																		/>
+																	</svg>
+																	Yes
 																</span>
 															) : (
-																etaFormatted.display
-															);
-														})()}
-													</td>
-												)}
-												{visibleColumns.rca && (
-													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-														{record.rca}
-													</td>
-												)}
-											</tr>
-										))}
+																<span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+																	<svg
+																		className="w-4 h-4 mr-1"
+																		fill="currentColor"
+																		viewBox="0 0 20 20"
+																		role="img"
+																		aria-labelledby="x-icon"
+																	>
+																		<title id="x-icon">
+																			No
+																		</title>
+																		<path
+																			fillRule="evenodd"
+																			d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+																			clipRule="evenodd"
+																		/>
+																	</svg>
+																	No
+																</span>
+															)}
+														</td>
+													)}
+													{visibleColumns.requestId && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.requestIdLink ? (
+																<button
+																	type="button"
+																	onClick={() => {
+																		if (
+																			record.requestIdLink
+																		) {
+																			const handler =
+																				getPreloadHandler(
+																					"openExternal",
+																				);
+																			handler(
+																				record.requestIdLink,
+																			);
+																		}
+																	}}
+																	className="text-blue-600 hover:text-blue-800 underline"
+																>
+																	{
+																		record.requestId
+																	}
+																</button>
+															) : (
+																record.requestId
+															)}
+														</td>
+													)}
+													{visibleColumns.createdTime && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.createdTime}
+														</td>
+													)}
+													{visibleColumns.applications && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{
+																record.applications
+															}
+														</td>
+													)}
+													{visibleColumns.categorization && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{
+																record.categorization
+															}
+														</td>
+													)}
+													{visibleColumns.requestStatus && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{
+																record.requestStatus
+															}
+														</td>
+													)}
+													{visibleColumns.module && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.module}
+														</td>
+													)}
+													{visibleColumns.subject && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.subjectLink ? (
+																<button
+																	type="button"
+																	onClick={() => {
+																		if (
+																			record.subjectLink
+																		) {
+																			const handler =
+																				getPreloadHandler(
+																					"openExternal",
+																				);
+																			handler(
+																				record.subjectLink,
+																			);
+																		}
+																	}}
+																	className="text-blue-600 hover:text-blue-800 underline"
+																>
+																	{
+																		record.subject
+																	}
+																</button>
+															) : (
+																record.subject
+															)}
+														</td>
+													)}
+													{visibleColumns.priority && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.priority}
+														</td>
+													)}
+													{visibleColumns.enlaces && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.enlaces}
+														</td>
+													)}
+													{visibleColumns.eta && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{(() => {
+																const etaFormatted =
+																	formatEtaDate(
+																		record.eta,
+																	);
+																return etaFormatted.original ? (
+																	<span
+																		title={
+																			etaFormatted.original
+																		}
+																	>
+																		{
+																			etaFormatted.display
+																		}
+																	</span>
+																) : (
+																	etaFormatted.display
+																);
+															})()}
+														</td>
+													)}
+													{visibleColumns.rca && (
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+															{record.rca}
+														</td>
+													)}
+												</tr>
+											),
+										)}
 									</tbody>
 								</table>
 							) : (
 								<EmptyState
-									title="No corrective maintenance data found"
-									description="Upload a corrective maintenance Excel file to view records."
+									title="No Corrective Maintenance Records"
+									description={
+										correctiveMaintenanceData.length === 0
+											? "Upload an Excel file to get started with corrective maintenance data processing"
+											: "No records match the current filter criteria"
+									}
 									icon={
 										<svg
 											className="mx-auto h-12 w-12 text-gray-400"
@@ -1742,6 +1959,16 @@ function WeeklyReportComponent() {
 								/>
 							)}
 						</div>
+
+						{/* L3 Summary Table */}
+						{filteredCorrectiveRecords.length > 0 && (
+							<div className="mt-6">
+								<L3SummaryTable
+									records={filteredCorrectiveRecords}
+									businessUnit={selectedBusinessUnit}
+								/>
+							</div>
+						)}
 					</div>
 				)}
 			</div>

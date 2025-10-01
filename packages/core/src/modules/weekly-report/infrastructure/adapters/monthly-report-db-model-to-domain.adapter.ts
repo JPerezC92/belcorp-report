@@ -36,7 +36,7 @@ export function monthlyReportDbModelToDomain(
 		model.release,
 		model.rca,
 		model.businessUnit,
-		model.semanal === 1, // Convert SQLite integer to boolean
+		model.inDateRange === 1, // Convert SQLite integer to boolean
 		model.rep,
 		model.dia,
 		model.week,

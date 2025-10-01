@@ -5,12 +5,50 @@ This document outlines the consistent UI design patterns used throughout the Bel
 ## Layout Structure
 
 ### Main Page Container
+**IMPORTANT**: All views must use this standard container structure for consistency.
+
 ```tsx
 <div className="container mx-auto px-4 py-8">
-  <div className="max-w-6xl mx-auto">
+  <div className="max-w-7xl mx-auto">
     {/* Page content */}
   </div>
 </div>
+```
+
+**Implementation Notes**:
+- ✅ Apply this pattern directly in route components OR in top-level components
+- ❌ Do NOT add wrapper divs around components that already have this pattern
+- ✅ All current views (tagging-v3, weekly-report, business-unit-settings, index) use this pattern
+
+**Example Route Component**:
+```tsx
+// Option 1: Route component directly implements pattern
+function MyRoute() {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">Page Title</h1>
+        {/* Page content */}
+      </div>
+    </div>
+  );
+}
+
+// Option 2: Dedicated component implements pattern, route just renders it
+function MyRoute() {
+  return <MyComponent />;
+}
+
+// In MyComponent.tsx
+export function MyComponent() {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Page content */}
+      </div>
+    </div>
+  );
+}
 ```
 
 ### Page Title
@@ -20,12 +58,61 @@ This document outlines the consistent UI design patterns used throughout the Bel
 </h1>
 ```
 
+### Home Page Pattern (Feature Cards)
+Use this pattern for navigation/overview pages with feature cards:
+
+```tsx
+<div className="container mx-auto px-4 py-8">
+  <div className="max-w-7xl mx-auto">
+    <h1 className="text-3xl font-bold text-gray-800 mb-6">
+      Welcome to Application Name
+    </h1>
+
+    {/* Introduction Card */}
+    <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+      <p className="text-gray-700 mb-4">
+        Brief description of the application.
+      </p>
+      <p className="text-gray-600 text-sm">
+        Usage instructions or helpful tips.
+      </p>
+    </div>
+
+    {/* Feature Cards Grid */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Link to="/feature-path" className="block group">
+        <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+          <div className="flex items-center mb-3">
+            <svg className="h-6 w-6 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {/* Icon SVG */}
+            </svg>
+            <h2 className="text-xl font-semibold text-gray-800 group-hover:text-blue-600">
+              Feature Name
+            </h2>
+          </div>
+          <p className="text-gray-600 text-sm">
+            Feature description
+          </p>
+        </div>
+      </Link>
+      {/* More feature cards */}
+    </div>
+  </div>
+</div>
+```
+
+**Color Coding for Feature Cards**:
+- Blue (`text-blue-500`, `group-hover:text-blue-600`) - Data management/primary features
+- Green (`text-green-500`, `group-hover:text-green-600`) - Reports/analytics
+- Purple (`text-purple-500`, `group-hover:text-purple-600`) - Settings/configuration
+- Orange/Yellow - Warnings or special actions
+
 ## Loading States
 
 ### Full Page Loading
 ```tsx
 <div className="container mx-auto px-4 py-8">
-  <div className="max-w-6xl mx-auto">
+  <div className="max-w-7xl mx-auto">
     <h1 className="text-3xl font-bold text-gray-800 mb-6">
       Page Title
     </h1>
@@ -52,7 +139,7 @@ This document outlines the consistent UI design patterns used throughout the Bel
 ### Full Page Error
 ```tsx
 <div className="container mx-auto px-4 py-8">
-  <div className="max-w-6xl mx-auto">
+  <div className="max-w-7xl mx-auto">
     <h1 className="text-3xl font-bold text-gray-800 mb-6">
       Page Title
     </h1>

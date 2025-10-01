@@ -1,9 +1,15 @@
 import { CorrectiveMaintenanceRecord } from "@core/modules/weekly-report/domain/corrective-maintenance-record.js";
 import type { CorrectiveMaintenanceExcelDto } from "@core/modules/weekly-report/infrastructure/dtos/corrective-maintenance-excel.dto.js";
+import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
 
-export function correctiveMaintenanceDtoToDomain(
-	dto: CorrectiveMaintenanceExcelDto
-): CorrectiveMaintenanceRecord | null {
+// Type for business unit detection function
+export type BusinessUnitDetector = (applicationText: string) => Promise<string> | string;
+
+export async function correctiveMaintenanceDtoToDomain(
+	dto: CorrectiveMaintenanceExcelDto,
+	detectBusinessUnit?: BusinessUnitDetector,
+	semanalDateRange?: SemanalDateRange | null
+): Promise<CorrectiveMaintenanceRecord | null> {
 	const requestId = dto["Request ID"].value.trim();
 
 	// Skip rows with empty required fields
@@ -19,49 +25,49 @@ export function correctiveMaintenanceDtoToDomain(
 		`[CorrectiveMaintenanceAdapter] Processing request ${requestId} with applications: "${applications}"`
 	);
 
-	// Determine business unit based on applications - check for substring matches
+	// Determine business unit using injected function or fallback to hardcoded logic
 	let businessUnit: string;
-	if (
-		applications.includes("APP - Gestiona tu Negocio (SE)") ||
-		applications.includes("APP - Crecer es Ganar (FFVV)") ||
-		applications.includes("Portal FFVV")
-	) {
-		businessUnit = "FFVV";
+	if (detectBusinessUnit) {
+		businessUnit = await detectBusinessUnit(applications);
 		console.log(
-			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (FFVV match)`
-		);
-	} else if (
-		applications.includes("Somos Belcorp 2.0") ||
-		applications.includes("APP - SOMOS BELCORP")
-	) {
-		businessUnit = "SB";
-		console.log(
-			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (SB match)`
-		);
-	} else if (applications.includes("Unete 3.0")) {
-		businessUnit = "UB-3";
-		console.log(
-			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (UB-3 match)`
-		);
-	} else if (applications.includes("Unete 2.0")) {
-		businessUnit = "UN-2";
-		console.log(
-			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (UN-2 match)`
-		);
-	} else if (applications.includes("Catálogo Digital")) {
-		businessUnit = "CD";
-		console.log(
-			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (CD match)`
-		);
-	} else if (applications.includes("PROL")) {
-		businessUnit = "PROL";
-		console.log(
-			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (PROL match)`
+			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (using service)`
 		);
 	} else {
-		// Log the unmatched application and skip the record instead of throwing error
+		// Fallback to hardcoded logic for backward compatibility
+		if (
+			applications.includes("APP - Gestiona tu Negocio (SE)") ||
+			applications.includes("APP - Crecer es Ganar (FFVV)") ||
+			applications.includes("Portal FFVV")
+		) {
+			businessUnit = "FFVV";
+		} else if (
+			applications.includes("Somos Belcorp 2.0") ||
+			applications.includes("APP - SOMOS BELCORP")
+		) {
+			businessUnit = "SB";
+		} else if (applications.includes("Unete 3.0")) {
+			businessUnit = "UB-3";
+		} else if (applications.includes("Unete 2.0")) {
+			businessUnit = "UN-2";
+		} else if (applications.includes("Catálogo Digital")) {
+			businessUnit = "CD";
+		} else if (applications.includes("PROL")) {
+			businessUnit = "PROL";
+		} else {
+			console.warn(
+				`[CorrectiveMaintenanceAdapter] Unable to determine business unit for applications: "${applications}". Skipping record ${requestId}.`
+			);
+			return null;
+		}
+		console.log(
+			`[CorrectiveMaintenanceAdapter] Assigned business unit: ${businessUnit} (using fallback logic)`
+		);
+	}
+
+	// Skip records with unknown business unit
+	if (businessUnit === 'UNKNOWN') {
 		console.warn(
-			`[CorrectiveMaintenanceAdapter] Unable to determine business unit for applications: "${applications}". Skipping record ${requestId}.`
+			`[CorrectiveMaintenanceAdapter] Unknown business unit for applications: "${applications}". Skipping record ${requestId}.`
 		);
 		return null;
 	}
@@ -139,5 +145,10 @@ export function correctiveMaintenanceDtoToDomain(
 		createData.subjectLink = dto["Subject"].link;
 	}
 
-	return CorrectiveMaintenanceRecord.create(createData);
+	// Add semanalDateRange if provided
+	const finalData = semanalDateRange
+		? { ...createData, semanalDateRange }
+		: createData;
+
+	return CorrectiveMaintenanceRecord.create(finalData);
 }

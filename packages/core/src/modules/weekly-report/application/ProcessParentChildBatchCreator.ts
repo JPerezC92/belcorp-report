@@ -9,6 +9,7 @@ import type {
 } from "@core/modules/weekly-report/domain/parent-child-excel-parser.js";
 import type { ParentChildRelationship } from "@core/modules/weekly-report/domain/parent-child-relationship.js";
 import type { ParentChildRelationshipRepository } from "@core/modules/weekly-report/domain/parent-child-relationship.repository.js";
+import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
 
 /**
  * Use case: Find all parent-child relationships
@@ -63,12 +64,14 @@ export class ProcessCorrectiveMaintenanceBatchCreator {
 	async execute(deps: {
 		fileBuffer: ArrayBuffer;
 		fileName: string;
+		semanalDateRange?: SemanalDateRange | null;
 	}): Promise<CorrectiveMaintenanceExcelParseResult> {
 		await this.repository.drop();
 
 		const parseResult = await this.excelParser.parseExcel(
 			deps.fileBuffer,
-			deps.fileName
+			deps.fileName,
+			deps.semanalDateRange
 		);
 
 		if (parseResult.success && parseResult.sheet) {

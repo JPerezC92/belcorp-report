@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WeeklyReportRouteImport } from './routes/weekly-report'
 import { Route as TaggingV3RouteImport } from './routes/tagging-v3'
+import { Route as MonthlyReportStatusSettingsRouteImport } from './routes/monthly-report-status-settings'
+import { Route as BusinessUnitSettingsRouteImport } from './routes/business-unit-settings'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WeeklyReportRoute = WeeklyReportRouteImport.update({
@@ -23,6 +25,17 @@ const TaggingV3Route = TaggingV3RouteImport.update({
   path: '/tagging-v3',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonthlyReportStatusSettingsRoute =
+  MonthlyReportStatusSettingsRouteImport.update({
+    id: '/monthly-report-status-settings',
+    path: '/monthly-report-status-settings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const BusinessUnitSettingsRoute = BusinessUnitSettingsRouteImport.update({
+  id: '/business-unit-settings',
+  path: '/business-unit-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -31,30 +44,54 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/business-unit-settings': typeof BusinessUnitSettingsRoute
+  '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
   '/tagging-v3': typeof TaggingV3Route
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/business-unit-settings': typeof BusinessUnitSettingsRoute
+  '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
   '/tagging-v3': typeof TaggingV3Route
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/business-unit-settings': typeof BusinessUnitSettingsRoute
+  '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
   '/tagging-v3': typeof TaggingV3Route
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/tagging-v3' | '/weekly-report'
+  fullPaths:
+    | '/'
+    | '/business-unit-settings'
+    | '/monthly-report-status-settings'
+    | '/tagging-v3'
+    | '/weekly-report'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/tagging-v3' | '/weekly-report'
-  id: '__root__' | '/' | '/tagging-v3' | '/weekly-report'
+  to:
+    | '/'
+    | '/business-unit-settings'
+    | '/monthly-report-status-settings'
+    | '/tagging-v3'
+    | '/weekly-report'
+  id:
+    | '__root__'
+    | '/'
+    | '/business-unit-settings'
+    | '/monthly-report-status-settings'
+    | '/tagging-v3'
+    | '/weekly-report'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BusinessUnitSettingsRoute: typeof BusinessUnitSettingsRoute
+  MonthlyReportStatusSettingsRoute: typeof MonthlyReportStatusSettingsRoute
   TaggingV3Route: typeof TaggingV3Route
   WeeklyReportRoute: typeof WeeklyReportRoute
 }
@@ -75,6 +112,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TaggingV3RouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/monthly-report-status-settings': {
+      id: '/monthly-report-status-settings'
+      path: '/monthly-report-status-settings'
+      fullPath: '/monthly-report-status-settings'
+      preLoaderRoute: typeof MonthlyReportStatusSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/business-unit-settings': {
+      id: '/business-unit-settings'
+      path: '/business-unit-settings'
+      fullPath: '/business-unit-settings'
+      preLoaderRoute: typeof BusinessUnitSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -87,6 +138,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BusinessUnitSettingsRoute: BusinessUnitSettingsRoute,
+  MonthlyReportStatusSettingsRoute: MonthlyReportStatusSettingsRoute,
   TaggingV3Route: TaggingV3Route,
   WeeklyReportRoute: WeeklyReportRoute,
 }

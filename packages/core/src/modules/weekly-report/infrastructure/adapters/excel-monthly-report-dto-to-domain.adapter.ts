@@ -1,8 +1,11 @@
 import { MonthlyReportRecord } from "../../domain/monthly-report-record.js";
 import type { ExcelMonthlyReportWithLinks } from "../dtos/excel-monthly-report.dto.js";
+import type { SemanalDateRange } from "../../domain/semanal-date-range.js";
 
 export function excelMonthlyReportDtoToDomain(
-	dto: ExcelMonthlyReportWithLinks
+	dto: ExcelMonthlyReportWithLinks,
+	semanalDateRange?: SemanalDateRange | null,
+	requestStatusReporte?: string
 ): MonthlyReportRecord {
 	// Clean up values - handle "No asignado" and empty strings
 	const cleanValue = (value: string | null | undefined): string | null => {
@@ -19,7 +22,7 @@ export function excelMonthlyReportDtoToDomain(
 		return match && match[1] ? match[1] : null;
 	};
 
-	return MonthlyReportRecord.create({
+	const data = {
 		requestId: dto["Request ID"],
 		applications: dto["Aplicativos"],
 		categorization: cleanValue(dto["Categorización"]),
@@ -50,5 +53,21 @@ export function excelMonthlyReportDtoToDomain(
 		release: cleanValue(dto["Release"]),
 		rca: cleanValue(dto["RCA"]),
 		enlaces: 0, // Will be calculated later when querying
-	});
+	} as const;
+
+	// Add optional parameters only if they exist to avoid undefined assignment
+	let createData: typeof data & {
+		semanalDateRange?: SemanalDateRange;
+		requestStatusReporte?: string;
+	} = data;
+
+	if (semanalDateRange) {
+		createData = { ...createData, semanalDateRange };
+	}
+
+	if (requestStatusReporte) {
+		createData = { ...createData, requestStatusReporte };
+	}
+
+	return MonthlyReportRecord.create(createData);
 }

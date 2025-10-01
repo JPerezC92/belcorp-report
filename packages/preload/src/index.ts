@@ -115,6 +115,10 @@ async function getDistinctRequestStatuses() {
 	return ipcRenderer.invoke("weekly-report:getDistinctRequestStatuses");
 }
 
+async function getDistinctMonthlyRequestStatusReporte() {
+	return ipcRenderer.invoke("getDistinctMonthlyRequestStatusReporte");
+}
+
 // Translation operations
 async function translateText(text: string) {
 	return ipcRenderer.invoke("weekly-report:translateText", text);
@@ -196,6 +200,129 @@ async function dropAllMonthlyReportRecords() {
 	return ipcRenderer.invoke("deleteAllMonthlyReports");
 }
 
+// Semanal date range operations
+async function getSemanalDateRange() {
+	return ipcRenderer.invoke("getSemanalDateRange");
+}
+
+async function saveSemanalDateRange(data: {
+	fromDate: string;
+	toDate: string;
+	description: string;
+}) {
+	return ipcRenderer.invoke("saveSemanalDateRange", data);
+}
+
+async function getDefaultSemanalDateRange() {
+	return ipcRenderer.invoke("getDefaultSemanalDateRange");
+}
+
+// Business Unit Rules operations
+async function getAllBusinessUnitRules() {
+	return ipcRenderer.invoke("business-unit-rules:get-all");
+}
+
+async function getActiveBusinessUnitRules() {
+	return ipcRenderer.invoke("business-unit-rules:get-active");
+}
+
+async function getBusinessUnitRuleById(id: number) {
+	return ipcRenderer.invoke("business-unit-rules:get-by-id", id);
+}
+
+async function createBusinessUnitRule(data: {
+	businessUnit: string;
+	pattern: string;
+	patternType?: 'contains' | 'regex' | 'exact';
+	priority?: number;
+	active?: boolean;
+}) {
+	return ipcRenderer.invoke("business-unit-rules:create", data);
+}
+
+async function updateBusinessUnitRule(id: number, updates: {
+	businessUnit?: string;
+	pattern?: string;
+	patternType?: 'contains' | 'regex' | 'exact';
+	priority?: number;
+	active?: boolean;
+}) {
+	return ipcRenderer.invoke("business-unit-rules:update", id, updates);
+}
+
+async function deleteBusinessUnitRule(id: number) {
+	return ipcRenderer.invoke("business-unit-rules:delete", id);
+}
+
+async function detectBusinessUnit(applicationText: string) {
+	return ipcRenderer.invoke("business-unit-rules:detect", applicationText);
+}
+
+async function testBusinessUnitPattern(pattern: string, text: string, patternType: 'contains' | 'regex' | 'exact') {
+	return ipcRenderer.invoke("business-unit-rules:test-pattern", pattern, text, patternType);
+}
+
+async function reorderBusinessUnitRules(ruleOrders: Array<{ id: number; priority: number }>) {
+	return ipcRenderer.invoke("business-unit-rules:reorder", ruleOrders);
+}
+
+async function getBusinessUnitStatistics() {
+	return ipcRenderer.invoke("business-unit-rules:get-statistics");
+}
+
+// Monthly Report Status Mapping operations
+async function getAllMonthlyReportStatusMappingRules() {
+	return ipcRenderer.invoke("monthly-report-status-mapping:get-all");
+}
+
+async function getActiveMonthlyReportStatusMappingRules() {
+	return ipcRenderer.invoke("monthly-report-status-mapping:get-active");
+}
+
+async function getMonthlyReportStatusMappingRuleById(id: number) {
+	return ipcRenderer.invoke("monthly-report-status-mapping:get-by-id", id);
+}
+
+async function createMonthlyReportStatusMappingRule(data: {
+	sourceStatus: string;
+	targetStatus: string;
+	patternType?: 'exact' | 'contains' | 'regex';
+	priority?: number;
+	active?: boolean;
+}) {
+	return ipcRenderer.invoke("monthly-report-status-mapping:create", data);
+}
+
+async function updateMonthlyReportStatusMappingRule(id: number, updates: {
+	sourceStatus?: string;
+	targetStatus?: string;
+	patternType?: 'exact' | 'contains' | 'regex';
+	priority?: number;
+	active?: boolean;
+}) {
+	return ipcRenderer.invoke("monthly-report-status-mapping:update", id, updates);
+}
+
+async function deleteMonthlyReportStatusMappingRule(id: number) {
+	return ipcRenderer.invoke("monthly-report-status-mapping:delete", id);
+}
+
+async function mapMonthlyReportRequestStatus(requestStatus: string) {
+	return ipcRenderer.invoke("monthly-report-status-mapping:map-status", requestStatus);
+}
+
+async function testMonthlyReportStatusPattern(pattern: string, text: string, patternType: 'contains' | 'regex' | 'exact') {
+	return ipcRenderer.invoke("monthly-report-status-mapping:test-pattern", pattern, text, patternType);
+}
+
+async function reorderMonthlyReportStatusMappingRules(ruleOrders: Array<{ id: number; priority: number }>) {
+	return ipcRenderer.invoke("monthly-report-status-mapping:reorder", ruleOrders);
+}
+
+async function getMonthlyReportStatusMappingStatistics() {
+	return ipcRenderer.invoke("monthly-report-status-mapping:get-statistics");
+}
+
 // Export service methods directly
 export {
 	getAllTags,
@@ -211,6 +338,7 @@ export {
 	getAllCorrectiveMaintenanceRecords,
 	getCorrectiveMaintenanceRecordsByFilters,
 	getDistinctRequestStatuses,
+	getDistinctMonthlyRequestStatusReporte,
 	translateText,
 	translateAllSubjects,
 	parseMonthlyReport,
@@ -224,6 +352,29 @@ export {
 	updateMonthlyReportEnlacesCounts,
 	findMonthlyReportRecordByRequestId,
 	dropAllMonthlyReportRecords,
+	getSemanalDateRange,
+	saveSemanalDateRange,
+	getDefaultSemanalDateRange,
+	getAllBusinessUnitRules,
+	getActiveBusinessUnitRules,
+	getBusinessUnitRuleById,
+	createBusinessUnitRule,
+	updateBusinessUnitRule,
+	deleteBusinessUnitRule,
+	detectBusinessUnit,
+	testBusinessUnitPattern,
+	reorderBusinessUnitRules,
+	getBusinessUnitStatistics,
+	getAllMonthlyReportStatusMappingRules,
+	getActiveMonthlyReportStatusMappingRules,
+	getMonthlyReportStatusMappingRuleById,
+	createMonthlyReportStatusMappingRule,
+	updateMonthlyReportStatusMappingRule,
+	deleteMonthlyReportStatusMappingRule,
+	mapMonthlyReportRequestStatus,
+	testMonthlyReportStatusPattern,
+	reorderMonthlyReportStatusMappingRules,
+	getMonthlyReportStatusMappingStatistics,
 	openExternal,
 	copyTextToClipboard,
 	copyHtmlToClipboard,

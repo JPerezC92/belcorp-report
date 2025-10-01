@@ -717,6 +717,214 @@ export const migrations: Migration[] = [
 			);
 		},
 	},
+	{
+		version: "005",
+		description: "Create semanal date ranges table",
+		dependencies: ["004"],
+		up: (db: Database) => {
+			// Create semanal_date_ranges table
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.SEMANAL_DATE_RANGES} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					fromDate TEXT NOT NULL,          -- Start date (Friday) in ISO format
+					toDate TEXT NOT NULL,            -- End date (Thursday) in ISO format
+					description TEXT NOT NULL,        -- e.g., "Cut to Thursday"
+					isActive BOOLEAN DEFAULT 1,      -- Currently active range
+					createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+
+			// Create index for faster queries
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_semanal_date_ranges_active ON ${TABLE_NAMES.SEMANAL_DATE_RANGES}(isActive)`
+			);
+
+			// Insert default Friday-Thursday range
+			// Calculate default range based on most recent Thursday
+			const now = new Date();
+			const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+
+			// Find the most recent Thursday (day 4)
+			let daysToSubtract = dayOfWeek - 4; // Thursday is day 4
+			if (daysToSubtract < 0) daysToSubtract += 7; // If we're before Thursday, go to previous week's Thursday
+
+			const mostRecentThursday = new Date(now);
+			mostRecentThursday.setDate(now.getDate() - daysToSubtract);
+			mostRecentThursday.setHours(23, 59, 59, 999); // End of Thursday
+
+			// Friday is 1 day after Thursday minus 7 days (previous Friday)
+			const previousFriday = new Date(mostRecentThursday);
+			previousFriday.setDate(mostRecentThursday.getDate() - 6); // 6 days before Thursday
+			previousFriday.setHours(0, 0, 0, 0); // Start of Friday
+
+			const fromDate = previousFriday
+				.toISOString()
+				.split("T")[0] as string; // YYYY-MM-DD format
+			const toDate = mostRecentThursday
+				.toISOString()
+				.split("T")[0] as string; // YYYY-MM-DD format
+
+			db.run(
+				`
+				INSERT INTO ${TABLE_NAMES.SEMANAL_DATE_RANGES}
+				(fromDate, toDate, description, isActive, createdAt, updatedAt)
+				VALUES (?, ?, 'Cut to Thursday', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`,
+				[fromDate, toDate]
+			);
+		},
+		down: (db: Database) => {
+			// Drop the table
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.SEMANAL_DATE_RANGES}`);
+		},
+	},
+	{
+		version: "011",
+		description: "Create business unit rules table with default patterns",
+		dependencies: ["010"],
+		up: (db: Database) => {
+			// Create business_unit_rules table
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.BUSINESS_UNIT_RULES} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					business_unit TEXT NOT NULL,
+					pattern TEXT NOT NULL,
+					pattern_type TEXT CHECK(pattern_type IN ('contains', 'regex', 'exact')) DEFAULT 'contains',
+					priority INTEGER DEFAULT 0,
+					active BOOLEAN DEFAULT 1,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+
+			// Create indexes for better performance
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_business_unit ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(business_unit)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_active ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(active)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_priority ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(priority)`
+			);
+
+			// Insert default rules from current hardcoded logic
+			const defaultRules = [
+				{ businessUnit: 'FFVV', pattern: 'APP - Gestiona tu Negocio (SE)', priority: 1 },
+				{ businessUnit: 'FFVV', pattern: 'APP - Crecer es Ganar (FFVV)', priority: 2 },
+				{ businessUnit: 'FFVV', pattern: 'Portal FFVV', priority: 3 },
+				{ businessUnit: 'SB', pattern: 'Somos Belcorp 2.0', priority: 4 },
+				{ businessUnit: 'SB', pattern: 'APP - SOMOS BELCORP', priority: 5 },
+				{ businessUnit: 'UB-3', pattern: 'Unete 3.0', priority: 6 },
+				{ businessUnit: 'UN-2', pattern: 'Unete 2.0', priority: 7 },
+				{ businessUnit: 'CD', pattern: 'Catálogo Digital', priority: 8 },
+				{ businessUnit: 'PROL', pattern: 'PROL', priority: 9 }
+			];
+
+			// Insert default rules using prepared statement
+			const insertStmt = db.prepare(`
+				INSERT INTO ${TABLE_NAMES.BUSINESS_UNIT_RULES}
+				(business_unit, pattern, pattern_type, priority, active, created_at, updated_at)
+				VALUES (?, ?, 'contains', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`);
+
+			try {
+				defaultRules.forEach((rule) => {
+					insertStmt.run([
+						rule.businessUnit,
+						rule.pattern,
+						rule.priority
+					]);
+				});
+				console.log(`✅ Inserted ${defaultRules.length} default business unit rules`);
+			} finally {
+				insertStmt.free();
+			}
+		},
+		down: (db: Database) => {
+			// Drop the table
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.BUSINESS_UNIT_RULES}`);
+		},
+	},
+	{
+		version: "012",
+		description: "Rename semanal to inDateRange and add to corrective_maintenance_records",
+		dependencies: ["011"],
+		up: (db: Database) => {
+			// Rename semanal column in monthly_report_records to inDateRange
+			db.run(`
+				ALTER TABLE ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}
+				RENAME COLUMN semanal TO inDateRange
+			`);
+			console.log(`✅ Renamed monthly_report_records.semanal to inDateRange`);
+
+			// Add inDateRange column to corrective_maintenance_records
+			db.run(`
+				ALTER TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}
+				ADD COLUMN inDateRange BOOLEAN DEFAULT 0
+			`);
+			console.log(`✅ Added inDateRange column to corrective_maintenance_records`);
+		},
+		down: (db: Database) => {
+			// Rename back inDateRange to semanal in monthly_report_records
+			db.run(`
+				ALTER TABLE ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}
+				RENAME COLUMN inDateRange TO semanal
+			`);
+
+			// Note: SQLite doesn't support DROP COLUMN easily without recreating the table
+			// For down migration, we'll just leave the column (it's rare to roll back)
+			console.log(`⚠️ Note: inDateRange column in corrective_maintenance_records not dropped (SQLite limitation)`);
+		},
+	},
+	{
+		version: "013",
+		description: "Create monthly report status mapping rules table with default mappings",
+		dependencies: ["012"],
+		up: (db: Database) => {
+			// Create monthly_report_status_mapping_rules table
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					sourceStatus TEXT NOT NULL,
+					targetStatus TEXT NOT NULL,
+					patternType TEXT CHECK(patternType IN ('exact', 'contains', 'regex')) DEFAULT 'exact',
+					priority INTEGER NOT NULL,
+					active INTEGER NOT NULL DEFAULT 1,
+					createdAt TEXT NOT NULL,
+					updatedAt TEXT NOT NULL
+				)
+			`);
+
+			// Create index for faster queries
+			db.run(`
+				CREATE INDEX IF NOT EXISTS idx_monthly_report_status_mapping_priority
+				ON ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}(priority, active)
+			`);
+
+			// Insert default mappings matching current hardcoded behavior
+			// Based on mapRequestStatus() in monthly-report-record.ts (lines 244-277)
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}
+					(sourceStatus, targetStatus, patternType, priority, active, createdAt, updatedAt)
+				VALUES
+					('En Mantenimiento Correctivo', 'In L3 Backlog', 'exact', 10, 1, datetime('now'), datetime('now')),
+					('Dev in Progress', 'In L3 Backlog', 'exact', 11, 1, datetime('now'), datetime('now')),
+					('Nivel 2', 'On going in L2', 'exact', 20, 1, datetime('now'), datetime('now')),
+					('Nivel 3', 'On going in L3', 'exact', 30, 1, datetime('now'), datetime('now')),
+					('Validado', 'Closed', 'exact', 40, 1, datetime('now'), datetime('now')),
+					('Closed', 'Closed', 'exact', 41, 1, datetime('now'), datetime('now'))
+			`);
+
+			console.log('✅ Created monthly_report_status_mapping_rules table with 6 default mappings');
+		},
+		down: (db: Database) => {
+			// Drop the table
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}`);
+			console.log('✅ Dropped monthly_report_status_mapping_rules table');
+		},
+	},
 ];
 // Add more migrations here as your schema evolves
 

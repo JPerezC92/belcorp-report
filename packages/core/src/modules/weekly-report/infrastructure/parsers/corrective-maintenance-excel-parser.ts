@@ -4,11 +4,14 @@ import type {
 	CorrectiveMaintenanceExcelSheet,
 } from "@core/modules/weekly-report/domain/corrective-maintenance-excel-parser.js";
 import type { CorrectiveMaintenanceRecord } from "@core/modules/weekly-report/domain/corrective-maintenance-record.js";
-import { correctiveMaintenanceDtoToDomain } from "@core/modules/weekly-report/infrastructure/adapters/correctiveMaintenanceDtoToDomain.adapter.js";
+import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
+import { correctiveMaintenanceDtoToDomain, type BusinessUnitDetector } from "@core/modules/weekly-report/infrastructure/adapters/correctiveMaintenanceDtoToDomain.adapter.js";
 import { correctiveMaintenanceExcelSchema } from "@core/modules/weekly-report/infrastructure/dtos/corrective-maintenance-excel.dto.js";
 import {
-	extractCellValueAndLink,
-	extractHeaderValue,
+	cellValueSchema,
+	cellWithLinkSchema,
+} from "@core/shared/schemas/excel-cell-validation.schema.js";
+import {
 	isLinkColumn,
 	validateHeaders,
 } from "@core/modules/weekly-report/infrastructure/utils/excel-parsing.utils.js";
@@ -17,6 +20,7 @@ import ExcelJS from "exceljs";
 export class CorrectiveMaintenanceExcelParserImpl
 	implements CorrectiveMaintenanceExcelParser
 {
+	constructor(private businessUnitDetector?: BusinessUnitDetector) {}
 	private readonly targetSheetName = "ManageEngine Report Framework";
 	private columnLetters: string[] = [
 		"B",
@@ -68,7 +72,8 @@ export class CorrectiveMaintenanceExcelParserImpl
 
 	async parseExcel(
 		fileBuffer: ArrayBuffer,
-		fileName: string
+		fileName: string,
+		semanalDateRange?: SemanalDateRange | null
 	): Promise<CorrectiveMaintenanceExcelParseResult> {
 		try {
 			const workbook = new ExcelJS.Workbook();
@@ -86,7 +91,7 @@ export class CorrectiveMaintenanceExcelParserImpl
 
 			const headers = this.extractHeaders(worksheet);
 			const warnings: string[] = [];
-			const rows = this.extractRows(worksheet, headers, warnings);
+			const rows = await this.extractRows(worksheet, headers, warnings, semanalDateRange);
 
 			const sheet: CorrectiveMaintenanceExcelSheet = {
 				name: worksheet.name,
@@ -121,18 +126,19 @@ export class CorrectiveMaintenanceExcelParserImpl
 
 		this.columnLetters.forEach((colLetter) => {
 			const cell = headerRow.getCell(colLetter);
-			const headerValue = extractHeaderValue(cell, colLetter);
+			const headerValue = cellValueSchema.parse(cell.value);
 			headers.push(headerValue);
 		});
 
 		return headers;
 	}
 
-	private extractRows(
+	private async extractRows(
 		worksheet: ExcelJS.Worksheet,
 		headers: string[],
-		warnings: string[]
-	): CorrectiveMaintenanceRecord[] {
+		warnings: string[],
+		semanalDateRange?: SemanalDateRange | null
+	): Promise<CorrectiveMaintenanceRecord[]> {
 		const records: CorrectiveMaintenanceRecord[] = [];
 
 		// Validate headers
@@ -158,7 +164,7 @@ export class CorrectiveMaintenanceExcelParserImpl
 
 				const cell = row.getCell(colLetter);
 				const { value: cellValue, link: cellLink } =
-					extractCellValueAndLink(cell);
+					cellWithLinkSchema.parse(cell.value);
 
 				rowData[header] = this.isLinkColumn(header)
 					? {
@@ -172,8 +178,10 @@ export class CorrectiveMaintenanceExcelParserImpl
 			const validationResult =
 				correctiveMaintenanceExcelSchema.safeParse(rowData);
 			if (validationResult.success) {
-				const record = correctiveMaintenanceDtoToDomain(
-					validationResult.data
+				const record = await correctiveMaintenanceDtoToDomain(
+					validationResult.data,
+					this.businessUnitDetector,
+					semanalDateRange
 				);
 				if (record) {
 					records.push(record);

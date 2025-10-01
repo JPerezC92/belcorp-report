@@ -13,6 +13,7 @@ import type {
 	AggregatedRelationship,
 	ParentChildRelationshipRepository,
 } from "@core/modules/weekly-report/domain/parent-child-relationship.repository.js";
+import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
 import {
 	ParentChildRelationshipFinder,
 	ProcessCorrectiveMaintenanceBatchCreator,
@@ -73,6 +74,7 @@ export class WeeklyReportService {
 		fileName: string;
 		repository: CorrectiveMaintenanceRecordRepository;
 		excelParser: CorrectiveMaintenanceExcelParser;
+		semanalDateRange?: SemanalDateRange | null;
 	}): Promise<CorrectiveMaintenanceExcelParseResult> {
 		const processCorrectiveMaintenanceBatchCreator =
 			new ProcessCorrectiveMaintenanceBatchCreator(
@@ -80,10 +82,20 @@ export class WeeklyReportService {
 				deps.repository
 			);
 
-		const result = await processCorrectiveMaintenanceBatchCreator.execute({
+		const executeParams: {
+			fileBuffer: ArrayBuffer;
+			fileName: string;
+			semanalDateRange?: SemanalDateRange | null;
+		} = {
 			fileBuffer: deps.fileBuffer,
 			fileName: deps.fileName,
-		});
+		};
+
+		if (deps.semanalDateRange !== undefined) {
+			executeParams.semanalDateRange = deps.semanalDateRange;
+		}
+
+		const result = await processCorrectiveMaintenanceBatchCreator.execute(executeParams);
 
 		return result;
 	}

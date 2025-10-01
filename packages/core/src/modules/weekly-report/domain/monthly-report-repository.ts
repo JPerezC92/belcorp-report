@@ -7,5 +7,6 @@ export interface MonthlyReportRepository {
 	findByRequestId(requestId: string): Promise<MonthlyReportRecord | null>;
 	updateStatus(requestId: string, newStatus: string): Promise<void>;
 	getWithEnlaces(): Promise<MonthlyReportRecord[]>;
+	getDistinctRequestStatusReporte(): Promise<string[]>;
 	deleteAll(): Promise<void>;
 }
