@@ -84,15 +84,22 @@ const config: DatabaseManagerConfig = {
 
 **Multi-Stage Development**:
 ```bash
-# Watch core/database packages only
-pnpm run dev:libs
+# Build packages individually (recommended for faster, more reliable builds)
+pnpm run build:core
+pnpm run build:database
 
-# Full development (libs + electron app)
+# Or watch individual packages
+pnpm run dev:core
+pnpm run dev:database
+
+# Start full development mode (libs + electron app together)
 pnpm run dev:full
 
 # Production build
 pnpm run build && pnpm run compile
 ```
+
+**Note**: Avoid `pnpm run dev:libs` (parallel builds) as they can be slow and unreliable. Build packages one by one for better performance. Use `pnpm run dev:full` for the complete development experience.
 
 **Hot Reload**: Renderer HMR, main process restarts via custom Vite plugin
 

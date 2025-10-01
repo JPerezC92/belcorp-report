@@ -15,10 +15,18 @@
 	},
 	"scripts": {
 		"build": "pnpm run -r build",
+		"build:core": "pnpm run --filter @app/core build",
+		"build:database": "pnpm run --filter @app/database build",
 		"dev:libs": "pnpm run --parallel --filter @app/core --filter @app/database dev",
+		"dev:core": "pnpm run --filter @app/core dev",
+		"dev:database": "pnpm run --filter @app/database dev",
 		"dev:full": "concurrently \"pnpm run dev:libs\" \"pnpm start\"",
 		"compile": "pnpm run build && electron-builder build --config electron-builder.mjs",
 		"test": "npx playwright test ./tests/e2e.spec.ts",
+		"test:corrective": "tsx scripts/test-corrective-maintenance-parser.ts",
+		"test:monthly": "tsx scripts/test-monthly-report-parser.ts",
+		"debug:monthly": "tsx scripts/debug-monthly-indaterange.ts",
+		"check:db": "tsx scripts/check-database-columns.ts",
 		"start": "node packages/dev-mode.js",
 		"typecheck": "pnpm run -r typecheck",
 		"create-renderer": "cd packages && node ./integrate-renderer/create-renderer.js",
@@ -29,6 +37,7 @@
 	"devDependencies": {
 		"@playwright/test": "1.55.0",
 		"@types/better-sqlite3": "7.6.13",
+		"@types/luxon": "3.7.1",
 		"@types/node": "24.3.1",
 		"@types/sql.js": "1.4.9",
 		"concurrently": "9.2.1",
@@ -38,6 +47,7 @@
 		"electron-rebuild": "3.2.9",
 		"glob": "11.0.3",
 		"playwright": "^1.55.0",
+		"ts-node": "10.9.2",
 		"vite": "7.1.5"
 	},
 	"dependencies": {
@@ -45,6 +55,9 @@
 		"@app/database": "*",
 		"@app/main": "*",
 		"@app/preload": "*",
-		"@app/renderer": "*"
+		"@app/renderer": "*",
+		"exceljs": "4.4.0",
+		"luxon": "3.7.2",
+		"sharp": "0.34.4"
 	}
 }

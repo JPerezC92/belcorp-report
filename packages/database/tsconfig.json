@@ -21,7 +21,10 @@
 		"noImplicitOverride": true,
 		"useUnknownInCatchVariables": true,
 		"noPropertyAccessFromIndexSignature": true,
-		"baseUrl": "."
+		"baseUrl": ".",
+		"paths": {
+			"@database/*": ["src/*"]
+		}
 	},
 	"include": ["src/**/*"],
 	"exclude": ["node_modules", "dist"]

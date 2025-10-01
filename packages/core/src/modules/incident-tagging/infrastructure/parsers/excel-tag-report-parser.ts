@@ -7,11 +7,13 @@ import type {
 import { excelTagDtoToDomain } from "@core/modules/incident-tagging/infrastructure/adapters/excelTagDtoToDomain.adapter.js";
 import { excelTagSchema } from "@core/modules/incident-tagging/infrastructure/dtos/excel-tag.dto.js";
 import {
-	extractCellValueAndLink,
-	extractHeaderValue,
+	cellValueSchema,
+	cellWithLinkSchema,
+} from "@core/shared/schemas/excel-cell-validation.schema.js";
+import {
 	isLinkColumn,
 	validateHeaders,
-} from "@core/modules/incident-tagging/infrastructure/utils/excel-parsing.utils.js";
+} from "@core/modules/weekly-report/infrastructure/utils/excel-parsing.utils.js";
 import ExcelJS from "exceljs";
 
 export class ExcelTagReportParser implements TagReportParser {
@@ -103,7 +105,7 @@ export class ExcelTagReportParser implements TagReportParser {
 	private extractHeaders(worksheet: ExcelJS.Worksheet): string[] {
 		const headers = this.columnLetters.map((col) => {
 			const cell = worksheet.getCell(`${col}1`);
-			return extractHeaderValue(cell, col);
+			return cellValueSchema.parse(cell.value);
 		});
 
 		validateHeaders(headers, this.headerOrder, this.headerOrder.length);
@@ -126,7 +128,7 @@ export class ExcelTagReportParser implements TagReportParser {
 
 					const cell = row.getCell(col);
 					const { value: cellValue, link: cellLink } =
-						extractCellValueAndLink(cell);
+						cellWithLinkSchema.parse(cell.value);
 
 					return {
 						[header]: isLinkColumn(header, [

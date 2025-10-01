@@ -14,43 +14,23 @@ const headerLabels = {
 
 export type ExcelTagDto = z.infer<typeof excelTagSchema>;
 
+// Schema expects data already processed by parser (cellWithLinkSchema already applied)
 export const excelTagSchema = z
 	.object({
 		[headerLabels.createdTime]: z.string(),
 		[headerLabels.requestId]: z.object({
-			value: z
-				.object({ richText: z.array(z.object({ text: z.unknown() })) })
-				.optional()
-				.transform((val) => {
-					if (!val?.richText?.[0]) return "";
-					const text = val.richText[0].text;
-					return typeof text === "string" ? text : "";
-				}),
-			link: z.string(),
+			value: z.string(),
+			link: z.string().optional(),
 		}),
 		[headerLabels.additionalInfo]: z.string(),
 		[headerLabels.module]: z.string(),
 		[headerLabels.problemId]: z.object({
-			value: z
-				.object({ richText: z.array(z.object({ text: z.unknown() })) })
-				.optional()
-				.transform((val) => {
-					if (!val?.richText?.[0]) return "";
-					const text = val.richText[0].text;
-					return typeof text === "string" ? text : "";
-				}),
-			link: z.string(),
+			value: z.string(),
+			link: z.string().optional(),
 		}),
 		[headerLabels.linkedRequestId]: z.object({
-			value: z
-				.object({ richText: z.array(z.object({ text: z.unknown() })) })
-				.optional()
-				.transform((val) => {
-					if (!val?.richText?.[0]) return "";
-					const text = val.richText[0].text;
-					return typeof text === "string" ? text : "";
-				}),
-			link: z.string(),
+			value: z.string(),
+			link: z.string().optional(),
 		}),
 		[headerLabels.jira]: z.string(),
 		[headerLabels.categorization]: z.string(),

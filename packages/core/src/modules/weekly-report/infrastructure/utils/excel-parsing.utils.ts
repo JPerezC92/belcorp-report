@@ -1,85 +1,9 @@
-import type ExcelJS from "exceljs";
-
 /**
  * Common utilities for Excel parsing operations
+ *
+ * Note: For cell value extraction, use cellValueSchema and cellWithLinkSchema
+ * from @core/shared/schemas/excel-cell-validation.schema.ts instead of manual extraction.
  */
-
-/**
- * Safely extracts header value from an Excel cell
- */
-export function extractHeaderValue(
-	cell: ExcelJS.Cell,
-	columnLetter: string
-): string {
-	let headerValue: string;
-
-	// Handle different cell value types
-	if (cell.value === null || cell.value === undefined) {
-		headerValue = `Column${columnLetter}`;
-	} else if (typeof cell.value === "string") {
-		headerValue = cell.value;
-	} else if (
-		typeof cell.value === "object" &&
-		cell.value &&
-		"richText" in cell.value
-	) {
-		// Handle rich text
-		const richText = cell.value.richText;
-		headerValue = Array.isArray(richText)
-			? richText
-					.map((rt) =>
-						typeof rt.text === "string"
-							? rt.text
-							: String(rt.text ?? "")
-					)
-					.join("")
-			: String(cell.value);
-	} else if (Array.isArray(cell.value)) {
-		// Handle array values
-		headerValue = cell.value
-			.map((v) => (typeof v === "string" ? v : String(v ?? "")))
-			.join(" ");
-	} else {
-		// Handle numbers, booleans, dates, etc.
-		headerValue = String(cell.value);
-	}
-
-	// Fallback to cell.text if we still don't have a good value
-	if (!headerValue || headerValue.trim() === "") {
-		headerValue = cell.text || `Column${columnLetter}`;
-	}
-
-	return headerValue.trim();
-}
-
-/**
- * Extracts cell value and link information from an Excel cell
- */
-export function extractCellValueAndLink(cell: ExcelJS.Cell): {
-	value: string;
-	link: string;
-} {
-	let cellValue = cell.text || "";
-	let cellLink = "";
-
-	// Check if this is a hyperlink cell
-	if (
-		cell.value &&
-		typeof cell.value === "object" &&
-		"hyperlink" in cell.value
-	) {
-		const hyperlinkObj = cell.value as {
-			text?: string;
-			hyperlink: string;
-			value?: unknown;
-		};
-		// Use cell.text for the display value, which handles rich text properly
-		cellValue = cell.text || hyperlinkObj.text || "";
-		cellLink = hyperlinkObj.hyperlink;
-	}
-
-	return { value: cellValue, link: cellLink };
-}
 
 /**
  * Determines if a header represents a link column

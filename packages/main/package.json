@@ -16,6 +16,7 @@
 		"@app/database": "*",
 		"@app/preload": "*",
 		"@app/renderer": "*",
+		"@xenova/transformers": "2.17.2",
 		"electron-updater": "6.6.2",
 		"exceljs": "4.4.0",
 		"sql.js": "1.13.0",

@@ -1,11 +1,11 @@
 // Database core functionality
-export * from "./database.js";
+export * from "@database/database.js";
 
 // Database Manager
-export * from "./database-manager.js";
+export * from "@database/database-manager.js";
 
 // Migrations
-export * from "./migrations.js";
+export * from "@database/migrations.js";
 
 // Table names constants
-export * from "./table-names.js";
+export * from "@database/table-names.js";
