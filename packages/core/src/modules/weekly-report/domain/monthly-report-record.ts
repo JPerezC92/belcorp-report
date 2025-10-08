@@ -1,5 +1,6 @@
 import { DateTime } from "luxon";
-import type { SemanalDateRange } from "./semanal-date-range.js";
+import type { DateRangeConfig } from "./date-range-config.js";
+import { DATA_QUALITY_RULES, COMMON_FIELD_VALUES } from "./monthly-report-data-quality-rules.js";
 
 export class MonthlyReportRecord {
 	constructor(
@@ -19,6 +20,7 @@ export class MonthlyReportRecord {
 		public readonly resolvedTime: string | null,
 		public readonly affectedCountries: string | null,
 		public readonly recurrence: string | null,
+		public readonly recurrenceComputed: string | null,
 		public readonly technician: string | null,
 		public readonly jira: string | null,
 		public readonly problemId: string | null,
@@ -43,7 +45,11 @@ export class MonthlyReportRecord {
 		public readonly informacionAdicionalReporte: string | null,
 		public readonly enlaces: number,
 		public readonly mensaje: string,
+		public readonly observations: string | null,
 		public readonly statusModifiedByUser: boolean = false,
+		// Display name mappings (for Weekly Evolution only)
+		public readonly moduleDisplayName?: string | null,
+		public readonly categorizationDisplayName?: string | null,
 		// Metadata
 		public readonly createdAt?: Date,
 		public readonly updatedAt?: Date
@@ -80,7 +86,7 @@ export class MonthlyReportRecord {
 		release: string | null;
 		rca: string | null;
 		enlaces?: number;
-		semanalDateRange?: SemanalDateRange; // Optional custom date range for Semanal calculation
+		dateRangeConfig?: DateRangeConfig; // Optional custom date range for Semanal calculation
 		requestStatusReporte?: string; // Optional pre-mapped status (from MonthlyReportStatusMappingService)
 	}): MonthlyReportRecord {
 		// Derive business unit from applications
@@ -91,8 +97,8 @@ export class MonthlyReportRecord {
 
 		// Parse date and extract computed fields
 		const dateTime = this.parseDateTime(data.createdTime);
-		const inDateRange = data.semanalDateRange
-			? data.semanalDateRange.isDateInRange(dateTime)
+		const inDateRange = data.dateRangeConfig
+			? data.dateRangeConfig.isDateInRange(dateTime)
 			: this.isCurrentWeek(dateTime); // Fallback to old logic if no range provided
 		const dia = dateTime.day;
 		const week = dateTime.weekNumber;
@@ -108,6 +114,12 @@ export class MonthlyReportRecord {
 			data.additionalInfo,
 			requestStatusReporte
 		);
+
+		// Compute recurrence based on linkedRequestId
+		const recurrenceComputed = this.computeRecurrence(data.linkedRequestId, data.recurrence);
+
+		// Compute observations based on data quality rules
+		const observations = this.computeObservations(requestStatusReporte, informacionAdicionalReporte, data.categorization);
 
 		// Create mensaje
 		const enlaces = data.enlaces ?? 0;
@@ -130,6 +142,7 @@ export class MonthlyReportRecord {
 			data.resolvedTime,
 			data.affectedCountries,
 			data.recurrence,
+			recurrenceComputed,
 			data.technician,
 			data.jira,
 			data.problemId,
@@ -153,7 +166,107 @@ export class MonthlyReportRecord {
 			informacionAdicionalReporte,
 			enlaces,
 			mensaje,
+			observations,
 			false
+		);
+	}
+
+	/**
+	 * Factory method for creating MonthlyReportRecord from database records.
+	 * This method trusts all pre-computed values from the database and does not recalculate them.
+	 * Use this when loading existing records from the database.
+	 */
+	static fromDatabase(data: {
+		requestId: string;
+		applications: string;
+		categorization: string | null;
+		requestIdLink: string | null;
+		createdTime: string;
+		requestStatus: string;
+		module: string;
+		subject: string;
+		subjectLink: string | null;
+		priority: string | null;
+		eta: string | null;
+		additionalInfo: string | null;
+		resolvedTime: string | null;
+		affectedCountries: string | null;
+		recurrence: string | null;
+		recurrenceComputed: string | null;
+		technician: string | null;
+		jira: string | null;
+		problemId: string | null;
+		problemIdLink: string | null;
+		linkedRequestId: string | null;
+		linkedRequestIdLink: string | null;
+		requestOLAStatus: string | null;
+		escalationGroup: string | null;
+		affectedApplications: string | null;
+		shouldResolveLevel1: string | null;
+		campaign: string | null;
+		cuv1: string | null;
+		release: string | null;
+		rca: string | null;
+		businessUnit: string;
+		inDateRange: boolean;
+		rep: string;
+		dia: number;
+		week: number;
+		priorityReporte: string | null;
+		requestStatusReporte: string;
+		informacionAdicionalReporte: string | null;
+		enlaces: number;
+		mensaje: string;
+		observations: string | null;
+		statusModifiedByUser: boolean;
+		moduleDisplayName?: string | null;
+		categorizationDisplayName?: string | null;
+	}): MonthlyReportRecord {
+		return new MonthlyReportRecord(
+			data.requestId,
+			data.applications,
+			data.categorization,
+			data.requestIdLink,
+			data.createdTime,
+			data.requestStatus,
+			data.module,
+			data.subject,
+			data.subjectLink,
+			data.priority,
+			data.priorityReporte,
+			data.eta,
+			data.additionalInfo,
+			data.resolvedTime,
+			data.affectedCountries,
+			data.recurrence,
+			data.recurrenceComputed,
+			data.technician,
+			data.jira,
+			data.problemId,
+			data.problemIdLink,
+			data.linkedRequestId,
+			data.linkedRequestIdLink,
+			data.requestOLAStatus,
+			data.escalationGroup,
+			data.affectedApplications,
+			data.shouldResolveLevel1,
+			data.campaign,
+			data.cuv1,
+			data.release,
+			data.rca,
+			data.businessUnit,
+			data.inDateRange,
+			data.rep,
+			data.dia,
+			data.week,
+			data.requestStatusReporte,
+			data.informacionAdicionalReporte,
+			data.enlaces,
+			data.mensaje,
+			data.observations,
+			data.statusModifiedByUser,
+			data.moduleDisplayName,
+			data.categorizationDisplayName
 		);
 	}
 
@@ -283,17 +396,60 @@ export class MonthlyReportRecord {
 	): string | null {
 		// If status maps to "In L3 Backlog", validate additionalInfo
 		if (requestStatusReporte === "In L3 Backlog") {
-			if (additionalInfo && additionalInfo.toLowerCase() !== "no asignado") {
+			if (additionalInfo && additionalInfo.toLowerCase() !== COMMON_FIELD_VALUES.NO_ASIGNADO.toLowerCase()) {
 				throw new Error(
 					`Validation error: When Request Status maps to "In L3 Backlog", ` +
-					`Información Adicional must be "No asignado" but got: "${additionalInfo}"`
+					`Información Adicional must be "${COMMON_FIELD_VALUES.NO_ASIGNADO}" but got: "${additionalInfo}"`
 				);
 			}
-			return "No asignado";
+			return COMMON_FIELD_VALUES.NO_ASIGNADO;
 		}
 
 		// Otherwise, keep original value
 		return additionalInfo;
+	}
+
+	private static computeRecurrence(linkedRequestId: string | null, recurrence: string | null): string | null {
+		// Only return "Recurrente" if linkedRequestId exists AND is not "No asignado"
+		if (linkedRequestId &&
+			linkedRequestId.trim() !== "" &&
+			linkedRequestId.toLowerCase().trim() !== COMMON_FIELD_VALUES.NO_ASIGNADO.toLowerCase()) {
+			return "Recurrente";
+		}
+		// Otherwise, return original recurrence value
+		return recurrence;
+	}
+
+	/**
+	 * Compute observations based on data quality rules
+	 * Returns a concatenated string of all applicable observation descriptions, or null if no issues found
+	 */
+	private static computeObservations(
+		requestStatusReporte: string,
+		informacionAdicionalReporte: string | null,
+		categorization: string | null
+	): string | null {
+		const observations: string[] = [];
+
+		// Rule 1: Closed requests must have informacionAdicionalReporte
+		if (requestStatusReporte === COMMON_FIELD_VALUES.CLOSED && !informacionAdicionalReporte) {
+			observations.push(DATA_QUALITY_RULES.CLOSED_MISSING_ADDITIONAL_INFO.description);
+		}
+
+		// Rule 2: Reports should not include "Esperando El Cliente" status
+		if (requestStatusReporte === COMMON_FIELD_VALUES.ESPERANDO_EL_CLIENTE) {
+			observations.push(DATA_QUALITY_RULES.WAITING_FOR_CLIENT_IN_REPORT.description);
+		}
+
+		// Rule 3: All records must have categorization and cannot be "No asignado"
+		if (!categorization ||
+			categorization.trim() === "" ||
+			categorization.toLowerCase().trim() === COMMON_FIELD_VALUES.NO_ASIGNADO.toLowerCase()) {
+			observations.push(DATA_QUALITY_RULES.MISSING_OR_UNASSIGNED_CATEGORIZATION.description);
+		}
+
+		// Return concatenated observations or null if no issues
+		return observations.length > 0 ? observations.join("; ") : null;
 	}
 
 	private static createMensaje(linkedRequestId: string | null, enlaces: number, requestStatusReporte: string): string {
@@ -334,6 +490,7 @@ export class MonthlyReportRecord {
 			this.resolvedTime,
 			this.affectedCountries,
 			this.recurrence,
+			this.recurrenceComputed,
 			this.technician,
 			this.jira,
 			this.problemId,
@@ -357,7 +514,10 @@ export class MonthlyReportRecord {
 			this.informacionAdicionalReporte,
 			this.enlaces,
 			this.mensaje,
+			this.observations,
 			true, // Mark as modified by user
+			this.moduleDisplayName,
+			this.categorizationDisplayName,
 			this.createdAt,
 			new Date()
 		);

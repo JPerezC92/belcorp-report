@@ -14,10 +14,16 @@ export default function Header() {
 					<Link to="/weekly-report">Weekly Report</Link>
 				</div>
 				<div className="px-2 font-bold">
+					<Link to="/war-rooms">War Rooms</Link>
+				</div>
+				<div className="px-2 font-bold">
 					<Link to="/business-unit-settings">Business Unit Settings</Link>
 			</div>
 			<div className="px-2 font-bold">
 				<Link to="/monthly-report-status-settings">Status Mapping</Link>
+				</div>
+				<div className="px-2 font-bold">
+					<Link to="/module-categorization-display-settings">Display Name Mapping</Link>
 				</div>
 			</nav>
 		</header>

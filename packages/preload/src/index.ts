@@ -61,6 +61,10 @@ async function parseTagReport(fileBuffer: ArrayBuffer, fileName: string) {
 	return ipcRenderer.invoke("tag-data:parseReport", fileBuffer, fileName);
 }
 
+async function getGroupedTagsByLinkedRequest() {
+	return ipcRenderer.invoke("tag-data:getGroupedByLinkedRequest");
+}
+
 // Weekly report operations
 async function parseParentChildExcel(
 	fileBuffer: ArrayBuffer,
@@ -113,6 +117,10 @@ async function getCorrectiveMaintenanceRecordsByFilters(
 
 async function getDistinctRequestStatuses() {
 	return ipcRenderer.invoke("weekly-report:getDistinctRequestStatuses");
+}
+
+async function getDistinctCorrectiveBusinessUnits() {
+	return ipcRenderer.invoke("weekly-report:getDistinctCorrectiveBusinessUnits");
 }
 
 async function getDistinctMonthlyRequestStatusReporte() {
@@ -200,21 +208,68 @@ async function dropAllMonthlyReportRecords() {
 	return ipcRenderer.invoke("deleteAllMonthlyReports");
 }
 
-// Semanal date range operations
-async function getSemanalDateRange() {
-	return ipcRenderer.invoke("getSemanalDateRange");
+async function getBugCategorizedRecords(businessUnit?: string) {
+	return ipcRenderer.invoke("getBugCategorizedRecords", businessUnit);
 }
 
-async function saveSemanalDateRange(data: {
+async function getScopeErrorCategorizedRecords(businessUnit?: string) {
+	return ipcRenderer.invoke("getScopeErrorCategorizedRecords", businessUnit);
+}
+
+async function getMonthlyReportsWithDisplayNames() {
+	return ipcRenderer.invoke("getMonthlyReportsWithDisplayNames");
+}
+
+async function getMonthlyReportsByBusinessUnitWithDisplayNames(businessUnit: string) {
+	return ipcRenderer.invoke("getMonthlyReportsByBusinessUnitWithDisplayNames", businessUnit);
+}
+
+// Date range config operations
+async function getDateRangeConfig() {
+	return ipcRenderer.invoke("getDateRangeConfig");
+}
+
+async function saveDateRangeConfig(data: {
 	fromDate: string;
 	toDate: string;
 	description: string;
 }) {
-	return ipcRenderer.invoke("saveSemanalDateRange", data);
+	return ipcRenderer.invoke("saveDateRangeConfig", data);
 }
 
-async function getDefaultSemanalDateRange() {
-	return ipcRenderer.invoke("getDefaultSemanalDateRange");
+async function getDefaultDateRangeConfig() {
+	return ipcRenderer.invoke("getDefaultDateRangeConfig");
+}
+
+// New scope-based date range config operations
+async function getDateRangeConfigByScope(scope: 'monthly' | 'corrective' | 'global') {
+	return ipcRenderer.invoke("getDateRangeConfigByScope", scope);
+}
+
+async function saveMonthlyDateRangeConfig(data: {
+	fromDate: string;
+	toDate: string;
+	description?: string;
+	rangeType: 'weekly' | 'custom' | 'disabled';
+}) {
+	return ipcRenderer.invoke("saveMonthlyDateRangeConfig", data);
+}
+
+async function saveCorrectiveDateRangeConfig(data: {
+	fromDate: string;
+	toDate: string;
+	description?: string;
+	rangeType: 'weekly' | 'custom' | 'disabled';
+}) {
+	return ipcRenderer.invoke("saveCorrectiveDateRangeConfig", data);
+}
+
+async function getDateRangeSettings() {
+	return ipcRenderer.invoke("getDateRangeSettings");
+}
+
+async function updateGlobalMode(enabled: boolean) {
+	return ipcRenderer.invoke("updateGlobalMode", enabled);
 }
 
 // Business Unit Rules operations
@@ -323,10 +378,75 @@ async function getMonthlyReportStatusMappingStatistics() {
 	return ipcRenderer.invoke("monthly-report-status-mapping:get-statistics");
 }
 
+// Module/Categorization Display Rules operations
+async function getAllModuleCategorizationDisplayRules() {
+	return ipcRenderer.invoke("module-categorization-display-rules:get-all");
+}
+
+async function getActiveModuleCategorizationDisplayRules() {
+	return ipcRenderer.invoke("module-categorization-display-rules:get-active");
+}
+
+async function getModuleCategorizationDisplayRuleById(id: number) {
+	return ipcRenderer.invoke("module-categorization-display-rules:get-by-id", id);
+}
+
+async function createModuleCategorizationDisplayRule(data: {
+	ruleType: 'module' | 'categorization';
+	sourceValue: string;
+	displayValue: string;
+	patternType?: 'exact' | 'contains' | 'regex';
+	priority?: number;
+	active?: boolean;
+}) {
+	return ipcRenderer.invoke("module-categorization-display-rules:create", data);
+}
+
+async function updateModuleCategorizationDisplayRule(id: number, updates: {
+	ruleType?: 'module' | 'categorization';
+	sourceValue?: string;
+	displayValue?: string;
+	patternType?: 'exact' | 'contains' | 'regex';
+	priority?: number;
+	active?: boolean;
+}) {
+	return ipcRenderer.invoke("module-categorization-display-rules:update", id, updates);
+}
+
+async function deleteModuleCategorizationDisplayRule(id: number) {
+	return ipcRenderer.invoke("module-categorization-display-rules:delete", id);
+}
+
+async function testModuleCategorizationDisplayPattern(pattern: string, text: string, patternType: 'contains' | 'regex' | 'exact') {
+	return ipcRenderer.invoke("module-categorization-display-rules:test-pattern", pattern, text, patternType);
+}
+
+async function reorderModuleCategorizationDisplayRules(ruleOrders: Array<{ id: number; priority: number }>) {
+	return ipcRenderer.invoke("module-categorization-display-rules:reorder", ruleOrders);
+}
+
+// War Room functions
+async function loadWarRoomData(buffer: ArrayBuffer, filename: string) {
+	return ipcRenderer.invoke("loadWarRoomData", buffer, filename);
+}
+
+async function getWarRoomRecords() {
+	return ipcRenderer.invoke("getWarRoomRecords");
+}
+
+async function getWarRoomApplications() {
+	return ipcRenderer.invoke("getWarRoomApplications");
+}
+
+async function dropWarRoomData() {
+	return ipcRenderer.invoke("dropWarRoomData");
+}
+
 // Export service methods directly
 export {
 	getAllTags,
 	parseTagReport,
+	getGroupedTagsByLinkedRequest,
 	parseForTaggingDataExcel,
 	parseAndSaveForTaggingDataExcel,
 	getAllForTaggingData,
@@ -338,6 +458,7 @@ export {
 	getAllCorrectiveMaintenanceRecords,
 	getCorrectiveMaintenanceRecordsByFilters,
 	getDistinctRequestStatuses,
+	getDistinctCorrectiveBusinessUnits,
 	getDistinctMonthlyRequestStatusReporte,
 	translateText,
 	translateAllSubjects,
@@ -352,9 +473,14 @@ export {
 	updateMonthlyReportEnlacesCounts,
 	findMonthlyReportRecordByRequestId,
 	dropAllMonthlyReportRecords,
-	getSemanalDateRange,
-	saveSemanalDateRange,
-	getDefaultSemanalDateRange,
+	getDateRangeConfig,
+	saveDateRangeConfig,
+	getDefaultDateRangeConfig,
+	getDateRangeConfigByScope,
+	saveMonthlyDateRangeConfig,
+	saveCorrectiveDateRangeConfig,
+	getDateRangeSettings,
+	updateGlobalMode,
 	getAllBusinessUnitRules,
 	getActiveBusinessUnitRules,
 	getBusinessUnitRuleById,
@@ -375,6 +501,22 @@ export {
 	testMonthlyReportStatusPattern,
 	reorderMonthlyReportStatusMappingRules,
 	getMonthlyReportStatusMappingStatistics,
+	getBugCategorizedRecords,
+	getScopeErrorCategorizedRecords,
+	getMonthlyReportsWithDisplayNames,
+	getMonthlyReportsByBusinessUnitWithDisplayNames,
+	getAllModuleCategorizationDisplayRules,
+	getActiveModuleCategorizationDisplayRules,
+	getModuleCategorizationDisplayRuleById,
+	createModuleCategorizationDisplayRule,
+	updateModuleCategorizationDisplayRule,
+	deleteModuleCategorizationDisplayRule,
+	testModuleCategorizationDisplayPattern,
+	reorderModuleCategorizationDisplayRules,
+	loadWarRoomData,
+	getWarRoomRecords,
+	getWarRoomApplications,
+	dropWarRoomData,
 	openExternal,
 	copyTextToClipboard,
 	copyHtmlToClipboard,

@@ -4,6 +4,8 @@ import {
 	type RequestIdWithLink,
 	type TagResponseArrayDto,
 	tagResponseArraySchema,
+	type GroupedTagData,
+	type GroupedTagResponse,
 } from "@app/core";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
@@ -45,8 +47,19 @@ function TaggingV3Component() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState<
-		"tag-data" | "for-tagging-data" | "enriched-data"
+		"tag-data" | "for-tagging-data" | "enriched-data" | "linked-request-overview"
 	>("tag-data");
+	const [groupedTags, setGroupedTags] = useState<GroupedTagData[]>([]);
+	const [categorizationToRequestIds, setCategorizationToRequestIds] = useState<Map<string, Map<string, RequestIdWithLink[]>>>(new Map());
+	const [additionalInfoToRequestIdsGrouped, setAdditionalInfoToRequestIdsGrouped] = useState<Map<string, Map<string, RequestIdWithLink[]>>>(new Map());
+	const [selectedCategorization, setSelectedCategorization] = useState<{
+		categorization: string;
+		requestIds: RequestIdWithLink[];
+	} | null>(null);
+	const [selectedAdditionalInfoGrouped, setSelectedAdditionalInfoGrouped] = useState<{
+		info: string;
+		requestIds: RequestIdWithLink[];
+	} | null>(null);
 	const [parseStatus, setParseStatus] = useState<{
 		loading: boolean;
 		error: string | null;
@@ -125,10 +138,15 @@ function TaggingV3Component() {
 				);
 			}
 			const fileBuffer = await file.arrayBuffer();
-			const result = await parseAndSaveForTaggingDataExcel(fileBuffer, file.name);
+			const result = await parseAndSaveForTaggingDataExcel(
+				fileBuffer,
+				file.name,
+			);
 
 			if (!result.success) {
-				throw new Error(result.error || "Failed to parse For Tagging Data Excel");
+				throw new Error(
+					result.error || "Failed to parse For Tagging Data Excel",
+				);
 			}
 
 			setForTaggingParseStatus({
@@ -238,11 +256,65 @@ function TaggingV3Component() {
 		}
 	};
 
+	const loadGroupedTags = useCallback(async () => {
+		try {
+			const fetchGroupedTags = getPreloadHandler("getGroupedTagsByLinkedRequest");
+			if (!fetchGroupedTags) {
+				throw new Error("Grouped tags fetch function not available");
+			}
+			const result: { success: boolean; data?: GroupedTagResponse; error?: string } = await fetchGroupedTags();
+			if (result.success && result.data) {
+				setGroupedTags(result.data.groupedData || []);
+				// Convert the nested record objects to nested Maps
+				const categMap = new Map<string, Map<string, RequestIdWithLink[]>>();
+				for (const [linkedReqId, innerObj] of Object.entries(result.data.categorizationToRequestIds)) {
+					const innerMap = new Map<string, RequestIdWithLink[]>();
+					for (const [categorization, requestIds] of Object.entries(innerObj)) {
+						innerMap.set(categorization, requestIds);
+					}
+					categMap.set(linkedReqId, innerMap);
+				}
+				setCategorizationToRequestIds(categMap);
+
+				const addInfoMap = new Map<string, Map<string, RequestIdWithLink[]>>();
+				for (const [linkedReqId, innerObj] of Object.entries(result.data.additionalInfoToRequestIds)) {
+					const innerMap = new Map<string, RequestIdWithLink[]>();
+					for (const [additionalInfo, requestIds] of Object.entries(innerObj)) {
+						innerMap.set(additionalInfo, requestIds);
+					}
+					addInfoMap.set(linkedReqId, innerMap);
+				}
+				setAdditionalInfoToRequestIdsGrouped(addInfoMap);
+			}
+		} catch (error) {
+			console.error("Error loading grouped tags:", error);
+		}
+	}, []);
+
+	const handleCategorizationClick = (linkedRequestId: string, categorization: string) => {
+		const requestIds = categorizationToRequestIds.get(linkedRequestId)?.get(categorization) || [];
+		setSelectedCategorization({ categorization, requestIds });
+	};
+
+	const handleAdditionalInfoGroupedClick = (linkedRequestId: string, info: string) => {
+		const requestIds = additionalInfoToRequestIdsGrouped.get(linkedRequestId)?.get(info) || [];
+		setSelectedAdditionalInfoGrouped({ info, requestIds });
+	};
+
+	const handleCopyAdditionalInfoGrouped = async (info: string) => {
+		try {
+			await navigator.clipboard.writeText(info);
+		} catch (error) {
+			console.error("Failed to copy additional info:", error);
+		}
+	};
+
 	useEffect(() => {
 		loadTags();
 		loadForTaggingData();
 		loadEnrichedForTaggingData();
-	}, [loadTags, loadForTaggingData, loadEnrichedForTaggingData]);
+		loadGroupedTags();
+	}, [loadTags, loadForTaggingData, loadEnrichedForTaggingData, loadGroupedTags]);
 
 	if (loading) {
 		return (
@@ -349,7 +421,18 @@ function TaggingV3Component() {
 										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
 								}`}
 							>
-								TAG Data
+								Tag Data
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("linked-request-overview")}
+								className={`py-2 px-1 border-b-2 font-medium text-sm ${
+									activeTab === "linked-request-overview"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								}`}
+							>
+								Linked Request Overview
 							</button>
 							<button
 								type="button"
@@ -386,8 +469,8 @@ function TaggingV3Component() {
 									Upload TAG Report
 								</h2>
 								<p className="text-gray-600">
-									Upload an Excel file to parse TAG report data using
-									the new core parser
+									Upload an Excel file to parse TAG report
+									data using the new core parser
 								</p>
 							</div>
 							<div className="p-6">
@@ -411,7 +494,9 @@ function TaggingV3Component() {
 								{parseStatus.loading && (
 									<div className="flex items-center text-blue-600 mb-4">
 										<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-										<span className="text-sm">Parsing file...</span>
+										<span className="text-sm">
+											Parsing file...
+										</span>
 									</div>
 								)}
 
@@ -698,8 +783,8 @@ function TaggingV3Component() {
 									Upload For Tagging Report
 								</h2>
 								<p className="text-gray-600">
-									Upload an Excel file to parse and save for tagging
-									data
+									Upload an Excel file to parse and save for
+									tagging data
 								</p>
 							</div>
 							<div className="p-6">
@@ -755,7 +840,9 @@ function TaggingV3Component() {
 													Parse Error
 												</h3>
 												<div className="mt-2 text-sm text-red-700">
-													{forTaggingParseStatus.error}
+													{
+														forTaggingParseStatus.error
+													}
 												</div>
 											</div>
 										</div>
@@ -788,7 +875,9 @@ function TaggingV3Component() {
 													Success
 												</h3>
 												<div className="mt-2 text-sm text-green-700">
-													{forTaggingParseStatus.success}
+													{
+														forTaggingParseStatus.success
+													}
 												</div>
 											</div>
 										</div>
@@ -1017,7 +1106,8 @@ function TaggingV3Component() {
 									{enrichedForTaggingData.length} records)
 								</h2>
 								<p className="text-gray-600">
-									Analysis of request relationships and additional information
+									Analysis of request relationships and
+									additional information
 								</p>
 							</div>
 
@@ -1262,6 +1352,170 @@ function TaggingV3Component() {
 						</div>
 					</div>
 				)}
+
+				{/* Linked Request Overview Tab */}
+				{activeTab === "linked-request-overview" && (
+					<div className="space-y-6">
+						{/* Refresh Button */}
+						<div className="flex justify-end">
+							<button
+								type="button"
+								onClick={() => loadGroupedTags()}
+								disabled={false}
+								className="bg-purple-500 hover:bg-purple-600 disabled:bg-purple-300 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2"
+							>
+								<svg
+									className="h-4 w-4"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									aria-labelledby="refresh-icon-linked"
+								>
+									<title id="refresh-icon-linked">
+										Refresh icon
+									</title>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+									/>
+								</svg>
+								Refresh Linked Request Overview
+							</button>
+						</div>
+
+						{/* Linked Request Overview Section */}
+						<div className="bg-white rounded-lg shadow-md">
+							<div className="px-6 py-4 border-b border-gray-200">
+								<h2 className="text-xl font-semibold text-gray-800">
+									Linked Request Overview ({groupedTags.length} linked requests)
+								</h2>
+								<p className="text-gray-600">
+									Grouped view by linked request with categorizations and additional info
+								</p>
+							</div>
+
+							<div className="overflow-x-auto">
+								<table className="min-w-full divide-y divide-gray-200">
+									<thead className="bg-gray-50">
+										<tr>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Linked Request
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Category
+											</th>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												Additional Info
+											</th>
+										</tr>
+									</thead>
+									<tbody className="bg-white divide-y divide-gray-200">
+										{groupedTags.map((group, index) => (
+											<tr
+												key={`${group.linkedRequestId.value}-${index}`}
+												className="hover:bg-gray-50"
+											>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{group.linkedRequestId.link ? (
+														<button
+															type="button"
+															onClick={() =>
+																handleExternalLink(
+																	group.linkedRequestId.link as string,
+																)
+															}
+															className="text-purple-600 hover:text-purple-800 underline text-sm cursor-pointer bg-transparent border-none p-0"
+														>
+															{group.linkedRequestId.value}
+														</button>
+													) : (
+														<span className="text-sm text-gray-900">
+															{group.linkedRequestId.value}
+														</span>
+													)}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<div className="flex flex-wrap gap-1">
+														{group.categorizations.length > 0 ? (
+															group.categorizations.map((categ) => (
+																<button
+																	key={`${group.linkedRequestId.value}-categ-${categ}`}
+																	type="button"
+																	onClick={() => handleCategorizationClick(group.linkedRequestId.value, categ)}
+																	className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer border-none"
+																	title={`Click to see all requests with "${categ}"`}
+																>
+																	{categ}
+																</button>
+															))
+														) : (
+															<span className="text-sm text-gray-400">-</span>
+														)}
+													</div>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<div className="flex flex-wrap gap-1">
+														{group.additionalInfoList.length > 0 ? (
+															group.additionalInfoList.map((info) => (
+																<div
+																	key={`${group.linkedRequestId.value}-info-${info}`}
+																	className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200"
+																>
+																	<button
+																		type="button"
+																		onClick={() =>
+																			handleAdditionalInfoGroupedClick(group.linkedRequestId.value, info)
+																		}
+																		className="cursor-pointer border-none bg-transparent p-0 text-purple-800 hover:text-purple-900"
+																		title={`Click to see all requests using "${info}"`}
+																	>
+																		{info}
+																	</button>
+																	<button
+																		type="button"
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			handleCopyAdditionalInfoGrouped(info);
+																		}}
+																		className="ml-1 p-0.5 rounded-sm hover:bg-purple-300 transition-colors border-none bg-transparent"
+																		title="Copy to clipboard"
+																	>
+																		<svg
+																			className="h-3 w-3 text-purple-600"
+																			fill="none"
+																			viewBox="0 0 24 24"
+																			stroke="currentColor"
+																			aria-labelledby="copy-icon-grouped"
+																		>
+																			<title id="copy-icon-grouped">
+																				Copy
+																			</title>
+																			<path
+																				strokeLinecap="round"
+																				strokeLinejoin="round"
+																				strokeWidth={2}
+																				d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+																			/>
+																		</svg>
+																	</button>
+																</div>
+															))
+														) : (
+															<span className="text-sm text-gray-400">-</span>
+														)}
+													</div>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</div>
+				)}
+
 				{/* Additional Information Panel */}
 				<div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
 					<h3 className="text-lg font-medium text-blue-800 mb-3">
@@ -1343,8 +1597,10 @@ function TaggingV3Component() {
 									request(s):
 								</p>
 								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-									{selectedAdditionalInfo.requestIds.map(
-										(requestIdWithLink) => (
+									{selectedAdditionalInfo.requestIds
+										.sort((a, b) => a.requestId.localeCompare(b.requestId, undefined, { numeric: true }))
+										.reverse()
+										.map((requestIdWithLink) => (
 											<div
 												key={
 													requestIdWithLink.requestId
@@ -1392,6 +1648,168 @@ function TaggingV3Component() {
 										setSelectedAdditionalInfo(null)
 									}
 									className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+								>
+									Close
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Categorization Details Modal */}
+				{selectedCategorization && (
+					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+						<div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+							<div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+								<h3 className="text-lg font-semibold text-gray-800">
+									Request IDs with category "{selectedCategorization.categorization}"
+								</h3>
+								<button
+									type="button"
+									onClick={() => setSelectedCategorization(null)}
+									className="text-gray-400 hover:text-gray-600"
+								>
+									<svg
+										className="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-labelledby="close-modal-categ"
+									>
+										<title id="close-modal-categ">Close modal</title>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth={2}
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+								</button>
+							</div>
+							<div className="px-6 py-4 max-h-96 overflow-y-auto">
+								<p className="text-sm text-gray-600 mb-4">
+									This category is used by {selectedCategorization.requestIds.length} request(s):
+								</p>
+								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+									{selectedCategorization.requestIds
+										.sort((a, b) => a.requestId.localeCompare(b.requestId, undefined, { numeric: true }))
+										.reverse()
+										.map((requestIdWithLink) => (
+										<div
+											key={requestIdWithLink.requestId}
+											className="bg-green-50 border border-green-200 rounded-md px-3 py-2 text-sm text-green-800 font-mono"
+										>
+											{requestIdWithLink.link ? (
+												<a
+													href={requestIdWithLink.link}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="text-green-600 hover:text-green-800 underline"
+													onClick={(e) => {
+														e.preventDefault();
+														handleExternalLink(requestIdWithLink.link as string);
+													}}
+												>
+													{requestIdWithLink.requestId}
+												</a>
+											) : (
+												requestIdWithLink.requestId
+											)}
+										</div>
+									))}
+								</div>
+								{selectedCategorization.requestIds.length === 0 && (
+									<p className="text-sm text-gray-500 italic">
+										No request IDs found for this category.
+									</p>
+								)}
+							</div>
+							<div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+								<button
+									type="button"
+									onClick={() => setSelectedCategorization(null)}
+									className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+								>
+									Close
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Additional Info Grouped Details Modal */}
+				{selectedAdditionalInfoGrouped && (
+					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+						<div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-hidden">
+							<div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+								<h3 className="text-lg font-semibold text-gray-800">
+									Request IDs using "{selectedAdditionalInfoGrouped.info}"
+								</h3>
+								<button
+									type="button"
+									onClick={() => setSelectedAdditionalInfoGrouped(null)}
+									className="text-gray-400 hover:text-gray-600"
+								>
+									<svg
+										className="h-6 w-6"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										aria-labelledby="close-modal-info-grouped"
+									>
+										<title id="close-modal-info-grouped">Close modal</title>
+										<path
+											strokeLinecap="round"
+											strokeLinejoin="round"
+											strokeWidth={2}
+											d="M6 18L18 6M6 6l12 12"
+										/>
+									</svg>
+								</button>
+							</div>
+							<div className="px-6 py-4 max-h-96 overflow-y-auto">
+								<p className="text-sm text-gray-600 mb-4">
+									This additional info is used by {selectedAdditionalInfoGrouped.requestIds.length} request(s):
+								</p>
+								<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+									{selectedAdditionalInfoGrouped.requestIds
+										.sort((a, b) => a.requestId.localeCompare(b.requestId, undefined, { numeric: true }))
+										.reverse()
+										.map((requestIdWithLink) => (
+										<div
+											key={requestIdWithLink.requestId}
+											className="bg-purple-50 border border-purple-200 rounded-md px-3 py-2 text-sm text-purple-800 font-mono"
+										>
+											{requestIdWithLink.link ? (
+												<a
+													href={requestIdWithLink.link}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="text-purple-600 hover:text-purple-800 underline"
+													onClick={(e) => {
+														e.preventDefault();
+														handleExternalLink(requestIdWithLink.link as string);
+													}}
+												>
+													{requestIdWithLink.requestId}
+												</a>
+											) : (
+												requestIdWithLink.requestId
+											)}
+										</div>
+									))}
+								</div>
+								{selectedAdditionalInfoGrouped.requestIds.length === 0 && (
+									<p className="text-sm text-gray-500 italic">
+										No request IDs found for this additional info.
+									</p>
+								)}
+							</div>
+							<div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+								<button
+									type="button"
+									onClick={() => setSelectedAdditionalInfoGrouped(null)}
+									className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium"
 								>
 									Close
 								</button>

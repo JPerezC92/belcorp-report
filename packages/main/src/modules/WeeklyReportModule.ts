@@ -11,7 +11,7 @@ import type { AppModule } from "../AppModule.js";
 import type { ModuleContext } from "../ModuleContext.js";
 import { SqlJsCorrectiveMaintenanceRecordRepository } from "../repositories/SqlJsCorrectiveMaintenanceRecordRepository.js";
 import { SqlJsParentChildRelationshipRepository } from "../repositories/SqlJsParentChildRelationshipRepository.js";
-import { SqlJsSemanalDateRangeRepository } from "../repositories/SqlJsSemanalDateRangeRepository.js";
+import { SqlJsDateRangeConfigRepository } from "../repositories/SqlJsDateRangeConfigRepository.js";
 import { ServiceRegistry } from "../services/ServiceRegistry.js";
 
 /**
@@ -68,15 +68,23 @@ export class WeeklyReportModule implements AppModule {
 							new CorrectiveMaintenanceExcelParserImpl(
 								this.getBusinessUnitDetector()
 							);
-						const semanalRepo = new SqlJsSemanalDateRangeRepository();
-						const semanalDateRange = await semanalRepo.getCurrent();
+						const dateRangeConfigRepo = new SqlJsDateRangeConfigRepository();
+
+						// Check if global mode is enabled
+						const { SqlJsDateRangeSettingsRepository } = await import("../repositories/SqlJsDateRangeSettingsRepository.js");
+						const settingsRepo = new SqlJsDateRangeSettingsRepository();
+						const settings = await settingsRepo.getSettings();
+
+						// Use global scope if global mode enabled, otherwise use corrective scope
+						const scope = settings.globalModeEnabled ? 'global' : 'corrective';
+						const dateRangeConfig = await dateRangeConfigRepo.getByScope(scope);
 
 						result = await service.parseCorrectiveMaintenanceExcel({
 							fileBuffer: buffer,
 							fileName: filename,
 							repository: correctiveRepo,
 							excelParser: correctiveParser,
-							semanalDateRange,
+							dateRangeConfig,
 						});
 					} else {
 						// Unknown file type
@@ -249,8 +257,16 @@ export class WeeklyReportModule implements AppModule {
 			"weekly-report:parseCorrectiveMaintenanceExcel",
 			async (_event, fileBuffer: ArrayBuffer, fileName: string) => {
 				const weeklyReportService = createWeeklyReportService();
-				const semanalRepo = new SqlJsSemanalDateRangeRepository();
-				const semanalDateRange = await semanalRepo.getCurrent();
+				const dateRangeConfigRepo = new SqlJsDateRangeConfigRepository();
+
+				// Check if global mode is enabled
+				const { SqlJsDateRangeSettingsRepository } = await import("../repositories/SqlJsDateRangeSettingsRepository.js");
+				const settingsRepo = new SqlJsDateRangeSettingsRepository();
+				const settings = await settingsRepo.getSettings();
+
+				// Use global scope if global mode enabled, otherwise use corrective scope
+				const scope = settings.globalModeEnabled ? 'global' : 'corrective';
+				const dateRangeConfig = await dateRangeConfigRepo.getByScope(scope);
 
 				const parseResult =
 					await weeklyReportService.parseCorrectiveMaintenanceExcel({
@@ -261,7 +277,7 @@ export class WeeklyReportModule implements AppModule {
 						excelParser: new CorrectiveMaintenanceExcelParserImpl(
 							this.getBusinessUnitDetector()
 						),
-						semanalDateRange,
+						dateRangeConfig,
 					});
 				return parseResult;
 			}
@@ -376,6 +392,30 @@ export class WeeklyReportModule implements AppModule {
 			} catch (error) {
 				console.error(
 					"WeeklyReportModule: Error fetching distinct request statuses:",
+					error
+				);
+				throw error;
+			}
+		});
+
+		ipcMain.handle("weekly-report:getDistinctCorrectiveBusinessUnits", async () => {
+			try {
+				console.log(
+					"WeeklyReportModule: Fetching distinct business units from corrective maintenance..."
+				);
+
+				const repository =
+					new SqlJsCorrectiveMaintenanceRecordRepository();
+				const businessUnits = await repository.getDistinctBusinessUnits();
+				console.log(
+					`WeeklyReportModule: Found ${businessUnits.length} distinct business units:`,
+					businessUnits
+				);
+
+				return businessUnits;
+			} catch (error) {
+				console.error(
+					"WeeklyReportModule: Error fetching distinct business units:",
 					error
 				);
 				throw error;

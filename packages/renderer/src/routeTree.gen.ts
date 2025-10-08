@@ -10,14 +10,21 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WeeklyReportRouteImport } from './routes/weekly-report'
+import { Route as WarRoomsRouteImport } from './routes/war-rooms'
 import { Route as TaggingV3RouteImport } from './routes/tagging-v3'
 import { Route as MonthlyReportStatusSettingsRouteImport } from './routes/monthly-report-status-settings'
+import { Route as ModuleCategorizationDisplaySettingsRouteImport } from './routes/module-categorization-display-settings'
 import { Route as BusinessUnitSettingsRouteImport } from './routes/business-unit-settings'
 import { Route as IndexRouteImport } from './routes/index'
 
 const WeeklyReportRoute = WeeklyReportRouteImport.update({
   id: '/weekly-report',
   path: '/weekly-report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WarRoomsRoute = WarRoomsRouteImport.update({
+  id: '/war-rooms',
+  path: '/war-rooms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TaggingV3Route = TaggingV3RouteImport.update({
@@ -29,6 +36,12 @@ const MonthlyReportStatusSettingsRoute =
   MonthlyReportStatusSettingsRouteImport.update({
     id: '/monthly-report-status-settings',
     path: '/monthly-report-status-settings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ModuleCategorizationDisplaySettingsRoute =
+  ModuleCategorizationDisplaySettingsRouteImport.update({
+    id: '/module-categorization-display-settings',
+    path: '/module-categorization-display-settings',
     getParentRoute: () => rootRouteImport,
   } as any)
 const BusinessUnitSettingsRoute = BusinessUnitSettingsRouteImport.update({
@@ -45,23 +58,29 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/business-unit-settings': typeof BusinessUnitSettingsRoute
+  '/module-categorization-display-settings': typeof ModuleCategorizationDisplaySettingsRoute
   '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
   '/tagging-v3': typeof TaggingV3Route
+  '/war-rooms': typeof WarRoomsRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/business-unit-settings': typeof BusinessUnitSettingsRoute
+  '/module-categorization-display-settings': typeof ModuleCategorizationDisplaySettingsRoute
   '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
   '/tagging-v3': typeof TaggingV3Route
+  '/war-rooms': typeof WarRoomsRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/business-unit-settings': typeof BusinessUnitSettingsRoute
+  '/module-categorization-display-settings': typeof ModuleCategorizationDisplaySettingsRoute
   '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
   '/tagging-v3': typeof TaggingV3Route
+  '/war-rooms': typeof WarRoomsRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRouteTypes {
@@ -69,30 +88,38 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/business-unit-settings'
+    | '/module-categorization-display-settings'
     | '/monthly-report-status-settings'
     | '/tagging-v3'
+    | '/war-rooms'
     | '/weekly-report'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/business-unit-settings'
+    | '/module-categorization-display-settings'
     | '/monthly-report-status-settings'
     | '/tagging-v3'
+    | '/war-rooms'
     | '/weekly-report'
   id:
     | '__root__'
     | '/'
     | '/business-unit-settings'
+    | '/module-categorization-display-settings'
     | '/monthly-report-status-settings'
     | '/tagging-v3'
+    | '/war-rooms'
     | '/weekly-report'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BusinessUnitSettingsRoute: typeof BusinessUnitSettingsRoute
+  ModuleCategorizationDisplaySettingsRoute: typeof ModuleCategorizationDisplaySettingsRoute
   MonthlyReportStatusSettingsRoute: typeof MonthlyReportStatusSettingsRoute
   TaggingV3Route: typeof TaggingV3Route
+  WarRoomsRoute: typeof WarRoomsRoute
   WeeklyReportRoute: typeof WeeklyReportRoute
 }
 
@@ -103,6 +130,13 @@ declare module '@tanstack/react-router' {
       path: '/weekly-report'
       fullPath: '/weekly-report'
       preLoaderRoute: typeof WeeklyReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/war-rooms': {
+      id: '/war-rooms'
+      path: '/war-rooms'
+      fullPath: '/war-rooms'
+      preLoaderRoute: typeof WarRoomsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tagging-v3': {
@@ -117,6 +151,13 @@ declare module '@tanstack/react-router' {
       path: '/monthly-report-status-settings'
       fullPath: '/monthly-report-status-settings'
       preLoaderRoute: typeof MonthlyReportStatusSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/module-categorization-display-settings': {
+      id: '/module-categorization-display-settings'
+      path: '/module-categorization-display-settings'
+      fullPath: '/module-categorization-display-settings'
+      preLoaderRoute: typeof ModuleCategorizationDisplaySettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/business-unit-settings': {
@@ -139,8 +180,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BusinessUnitSettingsRoute: BusinessUnitSettingsRoute,
+  ModuleCategorizationDisplaySettingsRoute:
+    ModuleCategorizationDisplaySettingsRoute,
   MonthlyReportStatusSettingsRoute: MonthlyReportStatusSettingsRoute,
   TaggingV3Route: TaggingV3Route,
+  WarRoomsRoute: WarRoomsRoute,
   WeeklyReportRoute: WeeklyReportRoute,
 }
 export const routeTree = rootRouteImport

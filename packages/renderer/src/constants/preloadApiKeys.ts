@@ -4,6 +4,7 @@
 export const preloadApiKeys = {
 	getAllTags: btoa("getAllTags") as keyof Window,
 	parseTagReport: btoa("parseTagReport") as keyof Window,
+	getGroupedTagsByLinkedRequest: btoa("getGroupedTagsByLinkedRequest") as keyof Window,
 	openExternal: btoa("openExternal") as keyof Window,
 	send: btoa("send") as keyof Window,
 	sha256sum: btoa("sha256sum") as keyof Window,
@@ -34,6 +35,9 @@ export const preloadApiKeys = {
 	) as keyof Window,
 	getDistinctRequestStatuses: btoa(
 		"getDistinctRequestStatuses"
+	) as keyof Window,
+	getDistinctCorrectiveBusinessUnits: btoa(
+		"getDistinctCorrectiveBusinessUnits"
 	) as keyof Window,
 	getDistinctMonthlyRequestStatusReporte: btoa(
 		"getDistinctMonthlyRequestStatusReporte"
@@ -73,9 +77,14 @@ export const preloadApiKeys = {
 	dropAllMonthlyReportRecords: btoa(
 		"dropAllMonthlyReportRecords"
 	) as keyof Window,
-	getSemanalDateRange: btoa("getSemanalDateRange") as keyof Window,
-	saveSemanalDateRange: btoa("saveSemanalDateRange") as keyof Window,
-	getDefaultSemanalDateRange: btoa("getDefaultSemanalDateRange") as keyof Window,
+	getDateRangeConfig: btoa("getDateRangeConfig") as keyof Window,
+	saveDateRangeConfig: btoa("saveDateRangeConfig") as keyof Window,
+	getDefaultDateRangeConfig: btoa("getDefaultDateRangeConfig") as keyof Window,
+	getDateRangeConfigByScope: btoa("getDateRangeConfigByScope") as keyof Window,
+	saveMonthlyDateRangeConfig: btoa("saveMonthlyDateRangeConfig") as keyof Window,
+	saveCorrectiveDateRangeConfig: btoa("saveCorrectiveDateRangeConfig") as keyof Window,
+	getDateRangeSettings: btoa("getDateRangeSettings") as keyof Window,
+	updateGlobalMode: btoa("updateGlobalMode") as keyof Window,
 	getAllBusinessUnitRules: btoa("getAllBusinessUnitRules") as keyof Window,
 	getActiveBusinessUnitRules: btoa("getActiveBusinessUnitRules") as keyof Window,
 	getBusinessUnitRuleById: btoa("getBusinessUnitRuleById") as keyof Window,
@@ -96,4 +105,20 @@ export const preloadApiKeys = {
 	testMonthlyReportStatusPattern: btoa("testMonthlyReportStatusPattern") as keyof Window,
 	reorderMonthlyReportStatusMappingRules: btoa("reorderMonthlyReportStatusMappingRules") as keyof Window,
 	getMonthlyReportStatusMappingStatistics: btoa("getMonthlyReportStatusMappingStatistics") as keyof Window,
+	getBugCategorizedRecords: btoa("getBugCategorizedRecords") as keyof Window,
+	getScopeErrorCategorizedRecords: btoa("getScopeErrorCategorizedRecords") as keyof Window,
+	getMonthlyReportsWithDisplayNames: btoa("getMonthlyReportsWithDisplayNames") as keyof Window,
+	getMonthlyReportsByBusinessUnitWithDisplayNames: btoa("getMonthlyReportsByBusinessUnitWithDisplayNames") as keyof Window,
+	getAllModuleCategorizationDisplayRules: btoa("getAllModuleCategorizationDisplayRules") as keyof Window,
+	getActiveModuleCategorizationDisplayRules: btoa("getActiveModuleCategorizationDisplayRules") as keyof Window,
+	getModuleCategorizationDisplayRuleById: btoa("getModuleCategorizationDisplayRuleById") as keyof Window,
+	createModuleCategorizationDisplayRule: btoa("createModuleCategorizationDisplayRule") as keyof Window,
+	updateModuleCategorizationDisplayRule: btoa("updateModuleCategorizationDisplayRule") as keyof Window,
+	deleteModuleCategorizationDisplayRule: btoa("deleteModuleCategorizationDisplayRule") as keyof Window,
+	testModuleCategorizationDisplayPattern: btoa("testModuleCategorizationDisplayPattern") as keyof Window,
+	reorderModuleCategorizationDisplayRules: btoa("reorderModuleCategorizationDisplayRules") as keyof Window,
+	loadWarRoomData: btoa("loadWarRoomData") as keyof Window,
+	getWarRoomRecords: btoa("getWarRoomRecords") as keyof Window,
+	getWarRoomApplications: btoa("getWarRoomApplications") as keyof Window,
+	dropWarRoomData: btoa("dropWarRoomData") as keyof Window,
 };

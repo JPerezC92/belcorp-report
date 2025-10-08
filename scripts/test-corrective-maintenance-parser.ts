@@ -1,5 +1,5 @@
 import { promises as fs } from "fs";
-import { CorrectiveMaintenanceExcelParserImpl, SemanalDateRange } from "@app/core";
+import { CorrectiveMaintenanceExcelParserImpl, DateRangeConfig } from "@app/core";
 import { DateTime } from "luxon";
 import path from "path";
 
@@ -24,8 +24,8 @@ async function testCorrectiveMaintenanceParser(): Promise<void> {
 
 		console.log("");
 
-		// TEST 1: Parse without semanalDateRange (fallback to isCurrentWeek)
-		console.log("TEST 1: Parse without semanalDateRange (fallback mode) ⏳");
+		// TEST 1: Parse without dateRangeConfig (fallback to isCurrentWeek)
+		console.log("TEST 1: Parse without dateRangeConfig (fallback mode) ⏳");
 		console.log("─".repeat(60));
 
 		const parser1 = new CorrectiveMaintenanceExcelParserImpl();
@@ -54,18 +54,18 @@ async function testCorrectiveMaintenanceParser(): Promise<void> {
 
 		console.log("");
 
-		// TEST 2: Parse with semanalDateRange (Friday-Thursday)
-		console.log("TEST 2: Parse with semanalDateRange (Friday-Thursday) ⏳");
+		// TEST 2: Parse with dateRangeConfig (Friday-Thursday)
+		console.log("TEST 2: Parse with dateRangeConfig (Friday-Thursday) ⏳");
 		console.log("─".repeat(60));
 
-		// Create a mock semanalDateRange for the most recent Friday-Thursday period
-		const mockSemanalRange = SemanalDateRange.createDefaultRange();
-		console.log(`📅 Using date range: ${mockSemanalRange.fromDate} to ${mockSemanalRange.toDate}`);
-		console.log(`   Display: ${mockSemanalRange.getDisplayText()}`);
-		console.log(`   Duration: ${mockSemanalRange.getDurationInDays()} days`);
+		// Create a mock dateRangeConfig for the most recent Friday-Thursday period
+		const mockDateRangeConfig = DateRangeConfig.createDefaultRange();
+		console.log(`📅 Using date range: ${mockDateRangeConfig.fromDate} to ${mockDateRangeConfig.toDate}`);
+		console.log(`   Display: ${mockDateRangeConfig.getDisplayText()}`);
+		console.log(`   Duration: ${mockDateRangeConfig.getDurationInDays()} days`);
 
 		const parser2 = new CorrectiveMaintenanceExcelParserImpl();
-		const result2 = await parser2.parseExcel(fileBuffer.buffer, "XD SEMANAL CORRECTIVO.xlsx", mockSemanalRange);
+		const result2 = await parser2.parseExcel(fileBuffer.buffer, "XD SEMANAL CORRECTIVO.xlsx", mockDateRangeConfig);
 
 		if (result2.success && result2.sheet) {
 			const records2 = result2.sheet.rows;

@@ -1,6 +1,6 @@
 import { CorrectiveMaintenanceRecord } from "@core/modules/weekly-report/domain/corrective-maintenance-record.js";
 import type { CorrectiveMaintenanceExcelDto } from "@core/modules/weekly-report/infrastructure/dtos/corrective-maintenance-excel.dto.js";
-import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
+import type { DateRangeConfig } from "@core/modules/weekly-report/domain/date-range-config.js";
 
 // Type for business unit detection function
 export type BusinessUnitDetector = (applicationText: string) => Promise<string> | string;
@@ -8,7 +8,7 @@ export type BusinessUnitDetector = (applicationText: string) => Promise<string> 
 export async function correctiveMaintenanceDtoToDomain(
 	dto: CorrectiveMaintenanceExcelDto,
 	detectBusinessUnit?: BusinessUnitDetector,
-	semanalDateRange?: SemanalDateRange | null
+	dateRangeConfig?: DateRangeConfig | null
 ): Promise<CorrectiveMaintenanceRecord | null> {
 	const requestId = dto["Request ID"].value.trim();
 
@@ -145,9 +145,9 @@ export async function correctiveMaintenanceDtoToDomain(
 		createData.subjectLink = dto["Subject"].link;
 	}
 
-	// Add semanalDateRange if provided
-	const finalData = semanalDateRange
-		? { ...createData, semanalDateRange }
+	// Add dateRangeConfig if provided
+	const finalData = dateRangeConfig
+		? { ...createData, dateRangeConfig }
 		: createData;
 
 	return CorrectiveMaintenanceRecord.create(finalData);

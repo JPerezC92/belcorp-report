@@ -1,40 +1,25 @@
 import { DateTime } from "luxon";
 
-export class SemanalDateRange {
+export type RangeType = 'weekly' | 'custom' | 'disabled';
+export type Scope = 'monthly' | 'corrective' | 'global';
+
+export class DateRangeConfig {
 	constructor(
 		public readonly id: number,
 		public readonly fromDate: string, // ISO date string (YYYY-MM-DD)
 		public readonly toDate: string,   // ISO date string (YYYY-MM-DD)
 		public readonly description: string,
 		public readonly isActive: boolean,
+		public readonly rangeType: RangeType = 'disabled',
+		public readonly scope: Scope = 'monthly',
 		public readonly createdAt?: Date,
 		public readonly updatedAt?: Date
 	) {}
 
-	static create(data: {
-		fromDate: string;
-		toDate: string;
-		description: string;
-	}): SemanalDateRange {
-		// Validate dates
-		this.validateDateRange(data.fromDate, data.toDate);
-		this.validateDescription(data.description);
-
-		return new SemanalDateRange(
-			0, // Will be set by database
-			data.fromDate,
-			data.toDate,
-			data.description,
-			true, // New ranges are active by default
-			new Date(),
-			new Date()
-		);
-	}
-
 	/**
-	 * Calculate default Friday-Thursday range based on most recent Thursday
+	 * Create a weekly range (auto-calculated Friday-Thursday)
 	 */
-	static createDefaultRange(): SemanalDateRange {
+	static createWeekly(scope: Scope = 'monthly'): DateRangeConfig {
 		const now = DateTime.now().setZone("America/Lima");
 		const dayOfWeek = now.weekday; // 1=Monday, 2=Tuesday, ..., 7=Sunday
 
@@ -45,21 +30,95 @@ export class SemanalDateRange {
 		const mostRecentThursday = now.minus({ days: daysToSubtract }).endOf('day');
 		const previousFriday = mostRecentThursday.minus({ days: 6 }).startOf('day');
 
-		return new SemanalDateRange(
+		return new DateRangeConfig(
 			0,
 			previousFriday.toISODate() || "",
 			mostRecentThursday.toISODate() || "",
-			"Cut to Thursday",
+			`Weekly Range (${scope})`,
 			true,
+			'weekly',
+			scope,
 			new Date(),
 			new Date()
 		);
 	}
 
 	/**
+	 * Create a custom range with manual dates
+	 */
+	static createCustom(data: {
+		fromDate: string;
+		toDate: string;
+		description?: string;
+		scope?: Scope;
+	}): DateRangeConfig {
+		// Validate dates
+		this.validateCustomDateRange(data.fromDate, data.toDate);
+		const description = data.description || `Custom Range (${data.scope || 'monthly'})`;
+		this.validateDescription(description);
+
+		return new DateRangeConfig(
+			0, // Will be set by database
+			data.fromDate,
+			data.toDate,
+			description,
+			true,
+			'custom',
+			data.scope || 'monthly',
+			new Date(),
+			new Date()
+		);
+	}
+
+	/**
+	 * Create a disabled range (all records match)
+	 */
+	static createDisabled(scope: Scope = 'monthly'): DateRangeConfig {
+		return new DateRangeConfig(
+			0,
+			'2025-01-01',
+			'2025-12-31',
+			`Disabled (${scope})`,
+			true,
+			'disabled',
+			scope,
+			new Date(),
+			new Date()
+		);
+	}
+
+	/**
+	 * @deprecated Use createWeekly() instead
+	 */
+	static createDefaultRange(): DateRangeConfig {
+		return DateRangeConfig.createWeekly('monthly');
+	}
+
+	/**
+	 * @deprecated Use createCustom() instead
+	 */
+	static create(data: {
+		fromDate: string;
+		toDate: string;
+		description: string;
+	}): DateRangeConfig {
+		return DateRangeConfig.createCustom({
+			fromDate: data.fromDate,
+			toDate: data.toDate,
+			description: data.description,
+			scope: 'monthly'
+		});
+	}
+
+	/**
 	 * Check if a given date falls within this range
+	 * For disabled ranges, always returns true (all records match)
 	 */
 	isDateInRange(date: DateTime): boolean {
+		if (this.rangeType === 'disabled') {
+			return true; // All records match when disabled
+		}
+
 		const fromDateTime = DateTime.fromISO(this.fromDate, { zone: "America/Lima" }).startOf('day');
 		const toDateTime = DateTime.fromISO(this.toDate, { zone: "America/Lima" }).endOf('day');
 
@@ -91,21 +150,29 @@ export class SemanalDateRange {
 		fromDate?: string;
 		toDate?: string;
 		description?: string;
-	}): SemanalDateRange {
+		rangeType?: RangeType;
+	}): DateRangeConfig {
 		const newFromDate = data.fromDate ?? this.fromDate;
 		const newToDate = data.toDate ?? this.toDate;
 		const newDescription = data.description ?? this.description;
+		const newRangeType = data.rangeType ?? this.rangeType;
 
-		// Validate new values
-		SemanalDateRange.validateDateRange(newFromDate, newToDate);
-		SemanalDateRange.validateDescription(newDescription);
+		// Validate new values based on range type
+		if (newRangeType === 'weekly') {
+			DateRangeConfig.validateWeeklyDateRange(newFromDate, newToDate);
+		} else if (newRangeType === 'custom') {
+			DateRangeConfig.validateCustomDateRange(newFromDate, newToDate);
+		}
+		DateRangeConfig.validateDescription(newDescription);
 
-		return new SemanalDateRange(
+		return new DateRangeConfig(
 			this.id,
 			newFromDate,
 			newToDate,
 			newDescription,
 			this.isActive,
+			newRangeType,
+			this.scope,
 			this.createdAt,
 			new Date()
 		);
@@ -114,20 +181,24 @@ export class SemanalDateRange {
 	/**
 	 * Mark this range as inactive
 	 */
-	deactivate(): SemanalDateRange {
-		return new SemanalDateRange(
+	deactivate(): DateRangeConfig {
+		return new DateRangeConfig(
 			this.id,
 			this.fromDate,
 			this.toDate,
 			this.description,
 			false,
+			this.rangeType,
+			this.scope,
 			this.createdAt,
 			new Date()
 		);
 	}
 
-	private static validateDateRange(fromDate: string, toDate: string): void {
-		// Validate date format
+	/**
+	 * Validate weekly date range (Friday to Thursday)
+	 */
+	private static validateWeeklyDateRange(fromDate: string, toDate: string): void {
 		const fromDateTime = DateTime.fromISO(fromDate);
 		const toDateTime = DateTime.fromISO(toDate);
 
@@ -159,6 +230,34 @@ export class SemanalDateRange {
 		if (diffInDays > 30) {
 			throw new Error(`Date range cannot exceed 30 days. Current range: ${diffInDays} days`);
 		}
+	}
+
+	/**
+	 * Validate custom date range (flexible, no day-of-week restrictions)
+	 */
+	private static validateCustomDateRange(fromDate: string, toDate: string): void {
+		const fromDateTime = DateTime.fromISO(fromDate);
+		const toDateTime = DateTime.fromISO(toDate);
+
+		if (!fromDateTime.isValid) {
+			throw new Error(`Invalid fromDate format: ${fromDate}. Expected YYYY-MM-DD`);
+		}
+
+		if (!toDateTime.isValid) {
+			throw new Error(`Invalid toDate format: ${toDate}. Expected YYYY-MM-DD`);
+		}
+
+		// Validate that fromDate is before toDate
+		if (fromDateTime >= toDateTime) {
+			throw new Error(`fromDate (${fromDate}) must be before toDate (${toDate})`);
+		}
+	}
+
+	/**
+	 * @deprecated Use validateWeeklyDateRange() or validateCustomDateRange()
+	 */
+	private static validateDateRange(fromDate: string, toDate: string): void {
+		this.validateWeeklyDateRange(fromDate, toDate);
 	}
 
 	private static validateDescription(description: string): void {

@@ -1,0 +1,393 @@
+	for (const migration of migrations) {
+		if (migration.dependencies) {
+			for (const dep of migration.dependencies) {
+				if (!versions.has(dep)) {
+					throw new MigrationError(
+						`Migration ${migration.version} depends on non-existent migration ${dep}`,
+						migration.version,
+						"up"
+					);
+				}
+			}
+		}
+	}
+}
+
+/**
+ * Sort migrations in dependency order
+ */
+function sortMigrationsByDependencies(migrations: Migration[]): Migration[] {
+	const sorted: Migration[] = [];
+	const processing = new Set<string>();
+	const processed = new Set<string>();
+
+	function visit(migration: Migration): void {
+		if (processed.has(migration.version)) {
+			return;
+		}
+
+		if (processing.has(migration.version)) {
+			throw new MigrationError(
+				`Circular dependency detected involving migration ${migration.version}`,
+				migration.version,
+				"up"
+			);
+		}
+
+		processing.add(migration.version);
+
+		// Process dependencies first
+		if (migration.dependencies) {
+			for (const depVersion of migration.dependencies) {
+				const depMigration = migrations.find(
+					(m) => m.version === depVersion
+				);
+				if (depMigration) {
+					visit(depMigration);
+				}
+			}
+		}
+
+		processing.delete(migration.version);
+		processed.add(migration.version);
+		sorted.push(migration);
+	}
+
+	for (const migration of migrations) {
+		visit(migration);
+	}
+
+	return sorted;
+}
+
+/**
+ * Initialize migrations table with enhanced schema
+ */
+function initializeMigrationsTable(db: Database): void {
+	db.run(`
+		CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MIGRATIONS} (
+			version TEXT PRIMARY KEY,
+			description TEXT NOT NULL,
+			applied_at TEXT DEFAULT CURRENT_TIMESTAMP,
+			checksum TEXT,
+			execution_time INTEGER DEFAULT 0
+		)
+	`);
+}
+
+/**
+ * Get applied migrations with full state information
+ * Handles both old and new schema formats for backward compatibility
+ */
+function getAppliedMigrations(db: Database): MigrationState[] {
+	try {
+		// First, try to get the table schema to see what columns exist
+		const schemaResult = db.exec(`
+			PRAGMA table_info(${TABLE_NAMES.MIGRATIONS})
+		`);
+
+		const hasDescriptionColumn = schemaResult[0]?.values.some(
+			(row) => row[1] === "description"
+		);
+		const hasChecksumColumn = schemaResult[0]?.values.some(
+			(row) => row[1] === "checksum"
+		);
+
+		let query: string;
+		if (hasDescriptionColumn && hasChecksumColumn) {
+			// New schema with all columns
+			query = `
+				SELECT version, description, applied_at, checksum
+				FROM ${TABLE_NAMES.MIGRATIONS}
+				ORDER BY version
+			`;
+		} else if (hasDescriptionColumn) {
+			// Has description but no checksum
+			query = `
+				SELECT version, description, applied_at, NULL as checksum
+				FROM ${TABLE_NAMES.MIGRATIONS}
+				ORDER BY version
+			`;
+		} else {
+			// Old schema - only version and applied_at
+			query = `
+				SELECT version, 'Legacy Migration' as description, applied_at, NULL as checksum
+				FROM ${TABLE_NAMES.MIGRATIONS}
+				ORDER BY version
+			`;
+		}
+
+		const result = db.exec(query);
+
+		if (!result[0]) {
+			return [];
+		}
+
+		return result[0].values.map((row) => ({
+			version: row[0] as string,
+			description: row[1] as string,
+			applied_at: row[2] as string,
+			checksum: row[3] as string | null,
+		}));
+	} catch (error) {
+		// If table doesn't exist or any other error, return empty array
+		console.log(
+			"No migrations table found or error reading migrations:",
+			error
+		);
+		return [];
+	}
+}
+
+/**
+ * Validate migration integrity using checksums
+ */
+function validateMigrationIntegrity(
+	migration: Migration,
+	appliedMigration: MigrationState
+): void {
+	if (
+		appliedMigration.checksum &&
+		migration.checksum !== appliedMigration.checksum
+	) {
+		throw new MigrationError(
+			`Migration ${migration.version} has been modified since it was applied. ` +
+				`Expected checksum: ${appliedMigration.checksum}, got: ${migration.checksum}`,
+			migration.version,
+			"up"
+		);
+	}
+}
+
+/**
+ * Apply all pending migrations with enhanced error handling and validation
+ */
+export function runMigrations(db: Database): MigrationResult[] {
+	const results: MigrationResult[] = [];
+
+	try {
+		// Validate migration structure
+		validateDependencies(migrations);
+
+		// Initialize migrations table
+		initializeMigrationsTable(db);
+
+		// Get applied migrations
+		const appliedMigrations = getAppliedMigrations(db);
+		const appliedVersions = new Set(
+			appliedMigrations.map((m) => m.version)
+		);
+
+		// Sort migrations by dependencies
+		const sortedMigrations = sortMigrationsByDependencies(migrations);
+
+		// Validate integrity of applied migrations
+		for (const migration of sortedMigrations) {
+			const appliedMigration = appliedMigrations.find(
+				(m) => m.version === migration.version
+			);
+			if (appliedMigration) {
+				try {
+					validateMigrationIntegrity(migration, appliedMigration);
+				} catch (error) {
+					console.warn(
+						`Migration integrity check failed: ${
+							error instanceof Error
+								? error.message
+								: String(error)
+						}`
+					);
+				}
+			}
+		}
+
+		// Apply pending migrations
+		for (const migration of sortedMigrations) {
+			if (!appliedVersions.has(migration.version)) {
+				const startTime = Date.now();
+				console.log(
+					`Applying migration ${migration.version}: ${migration.description}`
+				);
+
+				try {
+					// Execute migration
+					migration.up(db);
+
+					const executionTime = Date.now() - startTime;
+
+					// Record successful migration
+					db.run(
+						`INSERT INTO ${TABLE_NAMES.MIGRATIONS} (version, description, checksum, execution_time)
+						 VALUES (?, ?, ?, ?)`,
+						[
+							migration.version,
+							migration.description,
+							migration.checksum || null,
+							executionTime,
+						]
+					);
+
+					results.push({
+						version: migration.version,
+						success: true,
+						executionTime,
+					});
+
+					console.log(
+						`Migration ${migration.version} applied successfully (${executionTime}ms)`
+					);
+				} catch (error) {
+					const migrationError = new MigrationError(
+						`Failed to apply migration ${migration.version}: ${
+							error instanceof Error
+								? error.message
+								: String(error)
+						}`,
+						migration.version,
+						"up",
+						error instanceof Error
+							? error
+							: new Error(String(error))
+					);
+
+					results.push({
+						version: migration.version,
+						success: false,
+						error: migrationError,
+						executionTime: Date.now() - startTime,
+					});
+
+					console.error(
+						`Migration ${migration.version} failed:`,
+						migrationError
+					);
+					throw migrationError;
+				}
+			}
+		}
+
+		return results;
+	} catch (error) {
+		console.error("Migration process failed:", error);
+		throw error;
+	}
+}
+
+/**
+ * Rollback migrations with enhanced validation and dependency checking
+ */
+export function rollbackMigrations(
+	db: Database,
+	targetVersion?: string
+): MigrationResult[] {
+	const results: MigrationResult[] = [];
+
+	try {
+		const appliedMigrations = getAppliedMigrations(db);
+		const sortedAppliedVersions = appliedMigrations
+			.map((m) => m.version)
+			.sort()
+			.reverse(); // Rollback in reverse order
+
+		for (const version of sortedAppliedVersions) {
+			if (targetVersion && version <= targetVersion) {
+				break;
+			}
+
+			const migration = migrations.find((m) => m.version === version);
+			if (migration?.down) {
+				const startTime = Date.now();
+				console.log(
+					`Rolling back migration ${version}: ${migration.description}`
+				);
+
+				try {
+					migration.down(db);
+
+					const executionTime = Date.now() - startTime;
+
+					// Remove migration record
+					db.run(
+						`DELETE FROM ${TABLE_NAMES.MIGRATIONS} WHERE version = ?`,
+						[version]
+					);
+
+					results.push({
+						version,
+						success: true,
+						executionTime,
+					});
+
+					console.log(
+						`Migration ${version} rolled back successfully (${executionTime}ms)`
+					);
+				} catch (error) {
+					const migrationError = new MigrationError(
+						`Failed to rollback migration ${version}: ${
+							error instanceof Error
+								? error.message
+								: String(error)
+						}`,
+						version,
+						"down",
+						error instanceof Error
+							? error
+							: new Error(String(error))
+					);
+
+					results.push({
+						version,
+						success: false,
+						error: migrationError,
+						executionTime: Date.now() - startTime,
+					});
+
+					console.error(
+						`Rollback of migration ${version} failed:`,
+						migrationError
+					);
+					throw migrationError;
+				}
+			} else {
+				console.warn(
+					`Migration ${version} does not have a rollback function`
+				);
+			}
+		}
+
+		return results;
+	} catch (error) {
+		console.error("Rollback process failed:", error);
+		throw error;
+	}
+}
+
+/**
+ * Get migration status information
+ */
+export function getMigrationStatus(db: Database): {
+	availableMigrations: Migration[];
+	appliedMigrations: MigrationState[];
+	pendingMigrations: Migration[];
+} {
+	try {
+		initializeMigrationsTable(db);
+		const appliedMigrations = getAppliedMigrations(db);
+		const appliedVersions = new Set(
+			appliedMigrations.map((m) => m.version)
+		);
+
+		const pendingMigrations = migrations.filter(
+			(m) => !appliedVersions.has(m.version)
+		);
+
+		return {
+			availableMigrations: migrations,
+			appliedMigrations,
+			pendingMigrations,
+		};
+	} catch (error) {
+		console.error("Failed to get migration status:", error);
+		throw error;
+	}
+}

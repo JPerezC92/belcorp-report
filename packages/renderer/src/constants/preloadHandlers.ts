@@ -43,6 +43,7 @@ export interface PreloadHandlers {
 		requestStatus?: string
 	) => Promise<unknown>;
 	getDistinctRequestStatuses: () => Promise<string[]>;
+	getDistinctCorrectiveBusinessUnits: () => Promise<string[]>;
 	getDistinctMonthlyRequestStatusReporte: () => Promise<string[]>;
 	copyTextToClipboard: (text: string) => void;
 	copyHtmlToClipboard: (html: string, text?: string) => void;
@@ -77,6 +78,36 @@ export interface PreloadHandlers {
 	) => Promise<unknown>;
 	findMonthlyReportRecordByRequestId: (requestId: string) => Promise<unknown>;
 	dropAllMonthlyReportRecords: () => Promise<unknown>;
+	getBugCategorizedRecords: (businessUnit?: string) => Promise<unknown>;
+	getScopeErrorCategorizedRecords: (businessUnit?: string) => Promise<unknown>;
+	getMonthlyReportsWithDisplayNames: () => Promise<unknown>;
+	getMonthlyReportsByBusinessUnitWithDisplayNames: (businessUnit: string) => Promise<unknown>;
+	getAllModuleCategorizationDisplayRules: () => Promise<unknown>;
+	getActiveModuleCategorizationDisplayRules: () => Promise<unknown>;
+	getModuleCategorizationDisplayRuleById: (id: number) => Promise<unknown>;
+	createModuleCategorizationDisplayRule: (data: {
+		ruleType: 'module' | 'categorization';
+		sourceValue: string;
+		displayValue: string;
+		patternType?: 'exact' | 'contains' | 'regex';
+		priority?: number;
+		active?: boolean;
+	}) => Promise<unknown>;
+	updateModuleCategorizationDisplayRule: (id: number, updates: {
+		ruleType?: 'module' | 'categorization';
+		sourceValue?: string;
+		displayValue?: string;
+		patternType?: 'exact' | 'contains' | 'regex';
+		priority?: number;
+		active?: boolean;
+	}) => Promise<unknown>;
+	deleteModuleCategorizationDisplayRule: (id: number) => Promise<unknown>;
+	testModuleCategorizationDisplayPattern: (pattern: string, text: string, patternType: 'contains' | 'regex' | 'exact') => Promise<unknown>;
+	reorderModuleCategorizationDisplayRules: (ruleOrders: Array<{ id: number; priority: number }>) => Promise<unknown>;
+	loadWarRoomData: (buffer: ArrayBuffer, filename: string) => Promise<unknown>;
+	getWarRoomRecords: () => Promise<unknown>;
+	getWarRoomApplications: () => Promise<unknown>;
+	dropWarRoomData: () => Promise<unknown>;
 }
 
 export function getPreloadHandler<K extends keyof PreloadHandlers>(

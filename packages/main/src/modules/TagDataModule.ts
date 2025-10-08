@@ -1,4 +1,4 @@
-import { createTagService } from "@app/core";
+import { createTagService, TagGrouper } from "@app/core";
 import { ipcMain } from "electron";
 import type { AppModule } from "../AppModule.js";
 import type { ModuleContext } from "../ModuleContext.js";
@@ -41,6 +41,31 @@ export class TagDataModule implements AppModule {
 			} catch (error) {
 				console.error("Error fetching tags:", error);
 				throw error;
+			}
+		});
+
+		// Register IPC handler for getting grouped tags by linked request
+		ipcMain.handle("tag-data:getGroupedByLinkedRequest", async () => {
+			try {
+				console.log("IPC Handler: Fetching grouped tags by linked request...");
+
+				// Create repository and grouper service
+				const tagRepository = new SqlJsTagRepository();
+				const tagGrouper = new TagGrouper(tagRepository);
+
+				const groupedResponse = await tagGrouper.groupByLinkedRequestId();
+				console.log(`IPC Handler: Grouped ${groupedResponse.groupedData.length} linked requests`);
+
+				return {
+					success: true,
+					data: groupedResponse,
+				};
+			} catch (error) {
+				console.error("Error fetching grouped tags:", error);
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Unknown error occurred",
+				};
 			}
 		});
 

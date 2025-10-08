@@ -19,6 +19,7 @@ export const monthlyReportRecordDbSchema = z.object({
 	resolvedTime: z.string().nullable(),
 	affectedCountries: z.string().nullable(),
 	recurrence: z.string().nullable(),
+	recurrenceComputed: z.string().nullable(),
 	technician: z.string().nullable(),
 	jira: z.string().nullable(),
 	problemId: z.string().nullable(),
@@ -45,7 +46,12 @@ export const monthlyReportRecordDbSchema = z.object({
 	informacionAdicionalReporte: z.string().nullable(),
 	enlaces: z.number(),
 	mensaje: z.string(),
+	observations: z.string().nullable(),
 	statusModifiedByUser: z.number(), // SQLite stores boolean as 0/1
+
+	// Display name mappings (for Weekly Evolution only)
+	moduleDisplayName: z.string().nullable().optional(),
+	categorizationDisplayName: z.string().nullable().optional(),
 
 	// Metadata
 	createdAt: z.string().nullable(),
