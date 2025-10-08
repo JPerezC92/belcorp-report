@@ -1,5 +1,5 @@
 import type { CorrectiveMaintenanceRecord } from "./corrective-maintenance-record.js";
-import type { SemanalDateRange } from "./semanal-date-range.js";
+import type { DateRangeConfig } from "./date-range-config.js";
 
 export interface CorrectiveMaintenanceExcelSheet {
 	name: string;
@@ -19,6 +19,6 @@ export interface CorrectiveMaintenanceExcelParser {
 	parseExcel(
 		fileBuffer: ArrayBuffer,
 		fileName: string,
-		semanalDateRange?: SemanalDateRange | null
+		dateRangeConfig?: DateRangeConfig | null
 	): Promise<CorrectiveMaintenanceExcelParseResult>;
 }

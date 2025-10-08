@@ -1,21 +1,40 @@
-import React from "react";
+import React, { useState } from "react";
 
 interface MonthlyReportTableProps {
 	records: any[];
 	visibleColumns: Record<string, boolean>;
 	onOpenExternal: (url: string) => void;
+	onStatusChange?: (requestId: string, newStatus: string) => Promise<void>;
+	availableStatuses?: string[];
 }
 
 const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 	records,
 	visibleColumns,
 	onOpenExternal,
+	onStatusChange,
+	availableStatuses = [],
 }) => {
+	const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+
+	const handleStatusChange = async (requestId: string, newStatus: string) => {
+		if (!onStatusChange) return;
+
+		setUpdatingStatus(requestId);
+		try {
+			await onStatusChange(requestId, newStatus);
+		} finally {
+			setUpdatingStatus(null);
+		}
+	};
 	return (
 		<div className="overflow-x-auto">
 			<table className="min-w-full divide-y divide-gray-200">
 				<thead className="bg-gray-50">
 					<tr>
+						<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap sticky left-0 bg-gray-50 z-10">
+							#
+						</th>
 						{visibleColumns.requestId && (
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
 								Request ID
@@ -104,6 +123,16 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 						{visibleColumns.recurrence && (
 							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
 								Recurrence
+							</th>
+						)}
+						{visibleColumns.recurrenceComputed && (
+							<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+								Recurrence (Computed)
+							</th>
+						)}
+						{visibleColumns.observations && (
+							<th className="px-6 py-3 text-left text-xs font-medium text-yellow-600 uppercase tracking-wider whitespace-nowrap">
+								Observations
 							</th>
 						)}
 						{visibleColumns.technician && (
@@ -196,6 +225,9 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 				<tbody className="bg-white divide-y divide-gray-200">
 					{records.map((record, index) => (
 						<tr key={record.requestId || index}>
+							<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium sticky left-0 bg-white z-10">
+								{index + 1}
+							</td>
 							{visibleColumns.requestId && (
 								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
 									{record.requestIdLink ? (
@@ -309,6 +341,16 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 									{record.recurrence}
 								</td>
 							)}
+							{visibleColumns.recurrenceComputed && (
+								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+									{record.recurrenceComputed}
+								</td>
+							)}
+							{visibleColumns.observations && (
+								<td className={`px-6 py-4 whitespace-nowrap text-sm ${record.observations ? 'bg-yellow-50 text-yellow-800 font-medium' : 'text-gray-900'}`}>
+									{record.observations || '-'}
+								</td>
+							)}
 							{visibleColumns.technician && (
 								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
 									{record.technician}
@@ -395,8 +437,37 @@ const MonthlyReportTable: React.FC<MonthlyReportTableProps> = ({
 								</td>
 							)}
 							{visibleColumns.requestStatusReporte && (
-								<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-									{record.requestStatusReporte}
+								<td className="px-6 py-4 whitespace-nowrap text-sm">
+									{record.requestStatusReporte === "Esperando El Cliente" && !record.statusModifiedByUser ? (
+										<select
+											value={record.requestStatusReporte}
+											onChange={(e) => handleStatusChange(record.requestId, e.target.value)}
+											disabled={updatingStatus === record.requestId}
+											className={`px-2 py-1 border rounded-md text-sm ${
+												updatingStatus === record.requestId
+													? "bg-gray-100 cursor-wait"
+													: "bg-blue-50 border-blue-300 hover:bg-blue-100 cursor-pointer"
+											} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+										>
+											<option value={record.requestStatusReporte}>
+												{record.requestStatusReporte}
+											</option>
+											{availableStatuses
+												.filter((status) => status !== record.requestStatusReporte)
+												.map((status) => (
+													<option key={status} value={status}>
+														{status}
+													</option>
+												))}
+										</select>
+									) : (
+										<span className="text-gray-900">
+											{record.requestStatusReporte}
+											{record.statusModifiedByUser && (
+												<span className="ml-2 text-xs text-gray-500">(locked)</span>
+											)}
+										</span>
+									)}
 								</td>
 							)}
 							{visibleColumns.informacionAdicionalReporte && (

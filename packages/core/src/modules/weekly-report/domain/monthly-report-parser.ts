@@ -1,5 +1,5 @@
 import type { MonthlyReportRecord } from "./monthly-report-record.js";
-import type { SemanalDateRange } from "./semanal-date-range.js";
+import type { DateRangeConfig } from "./date-range-config.js";
 
 export interface MonthlyReportExcelSheet {
 	name: string;
@@ -20,6 +20,6 @@ export interface MonthlyReportExcelParser {
 	parseExcel(
 		fileBuffer: ArrayBuffer,
 		fileName: string,
-		semanalDateRange?: SemanalDateRange | null
+		dateRangeConfig?: DateRangeConfig | null
 	): Promise<MonthlyReportExcelParseResult>;
 }

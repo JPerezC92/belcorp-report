@@ -7,17 +7,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ColumnVisibilityControls from "@/components/ColumnVisibilityControls";
 import CorrectiveMaintenanceExcelImport from "@/components/CorrectiveMaintenanceExcelImport";
 import DataTable from "@/components/DataTable";
+import DateRangeConfigSettings from "@/components/DateRangeConfigSettings";
+import GlobalModeToggle from "@/components/GlobalModeToggle";
+import RangeIndicator from "@/components/RangeIndicator";
 import EmptyState from "@/components/EmptyState";
 import ErrorState from "@/components/ErrorState";
 import FileUploadSection from "@/components/FileUploadSection";
 import FilterControls from "@/components/FilterControls";
+import IncidentOverviewSection from "@/components/IncidentOverviewSection";
 import L3SummaryTable from "@/components/L3SummaryTable";
 import LoadingState from "@/components/LoadingState";
 import MonthlyReportTable from "@/components/MonthlyReportTable";
+import BugCategorizedTable from "@/components/BugCategorizedTable";
+import ScopeErrorCategorizedTable from "@/components/ScopeErrorCategorizedTable";
 import ParentChildExcelImport from "@/components/ParentChildExcelImport";
 import RefreshButton from "@/components/RefreshButton";
-import SemanalDateRangeSettings from "@/components/SemanalDateRangeSettings";
-import SemanalFilter from "@/components/SemanalFilter";
+import InDateRangeFilter from "@/components/InDateRangeFilter";
 import TabNavigation from "@/components/TabNavigation";
 import WeeklyEvolutionTable, {
 	type AdditionalInfoStat,
@@ -101,6 +106,9 @@ type MonthlyReportRecord = {
 	informacionAdicionalReporte: string;
 	enlaces: number;
 	mensaje: string;
+	observations: string | null;
+	statusModifiedByUser: boolean;
+	recurrenceComputed: string | null;
 };
 
 export const Route = createFileRoute("/weekly-report")({
@@ -181,6 +189,49 @@ function WeeklyReportComponent() {
 		useState<string | undefined>(undefined);
 	const [selectedMonthlyRequestStatus, setSelectedMonthlyRequestStatus] =
 		useState<string>("");
+
+	// Table 5 independent business unit filter state
+	const [selectedCorrectiveBusinessUnit, setSelectedCorrectiveBusinessUnit] =
+		useState<string | undefined>(undefined);
+	const [
+		availableCorrectiveBusinessUnits,
+		setAvailableCorrectiveBusinessUnits,
+	] = useState<string[]>([]);
+	// Separate corrective data for Incident Overview (Table 5) - independent from Corrective Maintenance tab
+	const [incidentOverviewCorrectiveData, setIncidentOverviewCorrectiveData] =
+		useState<CorrectiveMaintenanceRecord[]>([]);
+
+	// Bug categorized records state
+	const [bugCategorizedRecords, setBugCategorizedRecords] = useState<
+		Array<{
+			linkedRequestId: string;
+			informacionAdicionalReporte: string | null;
+			enlaces: number;
+			recordCount: number;
+			createdTime: string;
+			requestStatus: string;
+			eta: string;
+			priority: string;
+		}>
+	>([]);
+	const [bugCategorizedLoading, setBugCategorizedLoading] = useState(false);
+	const [bugCategorizedError, setBugCategorizedError] = useState<string | null>(null);
+
+	// Scope error categorized records state
+	const [scopeErrorCategorizedRecords, setScopeErrorCategorizedRecords] = useState<
+		Array<{
+			linkedRequestId: string;
+			informacionAdicionalReporte: string | null;
+			enlaces: number;
+			recordCount: number;
+			createdTime: string;
+			requestStatus: string;
+			eta: string;
+			priority: string;
+		}>
+	>([]);
+	const [scopeErrorCategorizedLoading, setScopeErrorCategorizedLoading] = useState(false);
+	const [scopeErrorCategorizedError, setScopeErrorCategorizedError] = useState<string | null>(null);
 	const [monthlyVisibleColumns, setMonthlyVisibleColumns] = useState<
 		Set<string>
 	>(
@@ -199,6 +250,8 @@ function WeeklyReportComponent() {
 			"resolvedTime",
 			"affectedCountries",
 			"recurrence",
+			"recurrenceComputed",
+			"observations",
 			"technician",
 			"jira",
 			"problemId",
@@ -223,22 +276,25 @@ function WeeklyReportComponent() {
 		]),
 	);
 
-	// State for tracking semanal date range changes
-	const [semanalRangeChangedMessage, setSemanalRangeChangedMessage] =
+	// State for tracking date range config changes
+	const [monthlyDateRangeConfigChangedMessage, setMonthlyDateRangeConfigChangedMessage] =
 		useState<string | null>(null);
 
-	// State for semanal filtering - default to 'inRange' to show only records within the semanal range
-	const [semanalFilterMode, setSemanalFilterMode] = useState<
+	// State for monthly InDateRange filtering - default to 'inRange' to show only records within the date range
+	const [monthlyInDateRangeFilterMode, setMonthlyInDateRangeFilterMode] = useState<
 		"inRange" | "outOfRange" | "showAll"
 	>("inRange");
 
-	// State for corrective maintenance semanal filtering
-	const [correctiveSemanalFilterMode, setCorrectiveSemanalFilterMode] =
+	// State for corrective maintenance InDateRange filtering
+	const [correctiveInDateRangeFilterMode, setCorrectiveInDateRangeFilterMode] =
 		useState<"inRange" | "outOfRange" | "showAll">("inRange");
 	const [
-		correctiveSemanalRangeChangedMessage,
-		setCorrectiveSemanalRangeChangedMessage,
+		correctiveDateRangeConfigChangedMessage,
+		setCorrectiveDateRangeConfigChangedMessage,
 	] = useState<string | null>(null);
+
+	// State for global mode (whether both tabs use the same date range)
+	const [globalModeEnabled, setGlobalModeEnabled] = useState<boolean>(false);
 
 	const tableRef = useRef<HTMLTableElement>(null);
 	const correctiveMaintenanceTableRef = useRef<HTMLTableElement>(null);
@@ -364,6 +420,121 @@ function WeeklyReportComponent() {
 		}
 	}, []);
 
+	const loadBugCategorizedRecords = useCallback(async (businessUnit?: string) => {
+		try {
+			setBugCategorizedLoading(true);
+			setBugCategorizedError(null);
+			const handler = getPreloadHandler("getBugCategorizedRecords");
+			const result = (await handler(businessUnit)) as {
+				success: boolean;
+				data?: Array<{
+					linkedRequestId: string;
+					informacionAdicionalReporte: string | null;
+					enlaces: number;
+					recordCount: number;
+					createdTime: string;
+					requestStatus: string;
+					eta: string;
+					priority: string;
+				}>;
+				error?: string;
+			};
+
+			if (result.success && result.data) {
+				setBugCategorizedRecords(result.data);
+			} else {
+				setBugCategorizedError(result.error || "Failed to load bug categorized records");
+			}
+		} catch (err) {
+			console.error("Failed to load bug categorized records:", err);
+			setBugCategorizedError(
+				err instanceof Error ? err.message : "Unknown error"
+			);
+		} finally {
+			setBugCategorizedLoading(false);
+		}
+	}, []);
+
+	const loadScopeErrorCategorizedRecords = useCallback(async (businessUnit?: string) => {
+		try {
+			setScopeErrorCategorizedLoading(true);
+			setScopeErrorCategorizedError(null);
+			const handler = getPreloadHandler("getScopeErrorCategorizedRecords");
+			const result = (await handler(businessUnit)) as {
+				success: boolean;
+				data?: Array<{
+					linkedRequestId: string;
+					informacionAdicionalReporte: string | null;
+					enlaces: number;
+					recordCount: number;
+					createdTime: string;
+					requestStatus: string;
+					eta: string;
+					priority: string;
+				}>;
+				error?: string;
+			};
+
+			if (result.success && result.data) {
+				setScopeErrorCategorizedRecords(result.data);
+			} else {
+				setScopeErrorCategorizedError(result.error || "Failed to load scope error categorized records");
+			}
+		} catch (err) {
+			console.error("Failed to load scope error categorized records:", err);
+			setScopeErrorCategorizedError(
+				err instanceof Error ? err.message : "Unknown error"
+			);
+		} finally {
+			setScopeErrorCategorizedLoading(false);
+		}
+	}, []);
+
+	const loadDistinctCorrectiveBusinessUnits = useCallback(async () => {
+		try {
+			const handler = getPreloadHandler(
+				"getDistinctCorrectiveBusinessUnits",
+			);
+			const businessUnits = (await handler()) as string[];
+			setAvailableCorrectiveBusinessUnits(businessUnits);
+			console.log(
+				"Loaded distinct corrective business units:",
+				businessUnits,
+			);
+		} catch (err) {
+			console.error(
+				"Failed to load distinct corrective business units:",
+				err,
+			);
+			// Don't set main error state for this
+		}
+	}, []);
+
+	// Load corrective maintenance data for Incident Overview (Table 5) - independent from Corrective Maintenance tab
+	const loadIncidentOverviewCorrectiveData = useCallback(async () => {
+		try {
+			console.log(
+				`Loading incident overview corrective data with business unit: ${selectedCorrectiveBusinessUnit || "All"}`,
+			);
+			const handler = getPreloadHandler(
+				"getAllCorrectiveMaintenanceRecords",
+			);
+			const data = (await handler(
+				selectedCorrectiveBusinessUnit,
+			)) as CorrectiveMaintenanceRecord[];
+			setIncidentOverviewCorrectiveData(data);
+			console.log(
+				`Loaded ${data.length} corrective records for incident overview`,
+			);
+		} catch (err) {
+			console.error(
+				"Failed to load incident overview corrective data:",
+				err,
+			);
+			// Don't set main error state for this
+		}
+	}, [selectedCorrectiveBusinessUnit]);
+
 	// Load corrective maintenance data when selectedBusinessUnit or selectedRequestStatus changes
 	useEffect(() => {
 		if (activeTab === "corrective-maintenance") {
@@ -376,6 +547,22 @@ function WeeklyReportComponent() {
 		loadDistinctRequestStatuses();
 		loadDistinctMonthlyRequestStatuses();
 	}, [loadDistinctRequestStatuses, loadDistinctMonthlyRequestStatuses]);
+
+	// Load global mode settings on component mount
+	useEffect(() => {
+		const loadGlobalModeSettings = async () => {
+			try {
+				const getDateRangeSettings = getPreloadHandler("getDateRangeSettings");
+				const result = await getDateRangeSettings();
+				if (result.success) {
+					setGlobalModeEnabled(result.data.globalModeEnabled);
+				}
+			} catch (error) {
+				console.error("Failed to load global mode settings:", error);
+			}
+		};
+		loadGlobalModeSettings();
+	}, []);
 
 	const translateCorrectiveMaintenanceData = useCallback(async () => {
 		if (correctiveMaintenanceData.length === 0) {
@@ -453,6 +640,16 @@ function WeeklyReportComponent() {
 		loadDistinctMonthlyRequestStatuses,
 	]);
 
+	// Load bug categorized records when business unit changes
+	useEffect(() => {
+		loadBugCategorizedRecords(selectedMonthlyBusinessUnit);
+	}, [selectedMonthlyBusinessUnit, loadBugCategorizedRecords]);
+
+	// Load scope error categorized records when business unit changes
+	useEffect(() => {
+		loadScopeErrorCategorizedRecords(selectedMonthlyBusinessUnit);
+	}, [selectedMonthlyBusinessUnit, loadScopeErrorCategorizedRecords]);
+
 	const handleExternalLink = async (url: string) => {
 		try {
 			const openExternal = getPreloadHandler("openExternal");
@@ -463,6 +660,94 @@ function WeeklyReportComponent() {
 			console.error("Failed to open external link:", error);
 		}
 	};
+
+	// Quick View handler for Corrective Maintenance table
+	const handleQuickViewCorrectiveMaintenance = () => {
+		setVisibleColumns({
+			businessUnit: false,
+			inDateRange: false,
+			requestId: true,
+			createdTime: true,
+			applications: false,
+			categorization: false,
+			requestStatus: false,
+			module: true,
+			subject: true,
+			priority: true,
+			enlaces: true,
+			eta: true,
+			rca: false,
+		});
+	};
+
+	// Handle global mode toggle
+	const handleGlobalModeToggle = async (enabled: boolean) => {
+		try {
+			const updateGlobalMode = getPreloadHandler("updateGlobalMode");
+			const result = await updateGlobalMode(enabled);
+			if (result.success) {
+				setGlobalModeEnabled(enabled);
+				// When enabling global mode, show warning on both tabs
+				if (enabled) {
+					const message = "Global mode enabled. Both tabs now use the same date range.";
+					setMonthlyDateRangeConfigChangedMessage(message);
+					setCorrectiveDateRangeConfigChangedMessage(message);
+				} else {
+					// When disabling, clear warnings
+					setMonthlyDateRangeConfigChangedMessage(null);
+					setCorrectiveDateRangeConfigChangedMessage(null);
+				}
+			}
+		} catch (error) {
+			console.error("Failed to toggle global mode:", error);
+		}
+	};
+
+	// Handle monthly report status change
+	const handleMonthlyReportStatusChange = useCallback(
+		async (requestId: string, newStatus: string) => {
+			try {
+				const handler = getPreloadHandler("updateMonthlyReportRecordStatus");
+				const result = await handler(requestId, newStatus);
+
+				if (result.success) {
+					console.log(`Status updated successfully for ${requestId}`);
+					// Reload monthly report data to reflect changes
+					setMonthlyReportLoading(true);
+					setMonthlyReportError(null);
+
+					try {
+						let reloadResult: MonthlyReportResult;
+
+						if (selectedMonthlyBusinessUnit) {
+							const reloadHandler = getPreloadHandler("getMonthlyReportRecordsByBusinessUnit");
+							reloadResult = (await reloadHandler(selectedMonthlyBusinessUnit)) as MonthlyReportResult;
+						} else {
+							const reloadHandler = getPreloadHandler("getAllMonthlyReportRecords");
+							reloadResult = (await reloadHandler()) as MonthlyReportResult;
+						}
+
+						if (reloadResult.success) {
+							setMonthlyReportRecords(reloadResult.data || []);
+						} else {
+							setMonthlyReportError(reloadResult.error || "Failed to reload records");
+						}
+					} catch (err) {
+						setMonthlyReportError(err instanceof Error ? err.message : "Unknown error occurred");
+					} finally {
+						setMonthlyReportLoading(false);
+					}
+				} else {
+					console.error("Failed to update status:", result.error);
+					alert(`Failed to update status: ${result.error}`);
+				}
+			} catch (error) {
+				console.error("Error updating monthly report status:", error);
+				alert(`Error updating status: ${error instanceof Error ? error.message : String(error)}`);
+			}
+		},
+		[selectedMonthlyBusinessUnit]
+	);
 
 	// Handle copy events on the table to preserve hyperlinks
 	const handleTableCopy = useCallback((e: ClipboardEvent) => {
@@ -657,16 +942,16 @@ function WeeklyReportComponent() {
 			let result: MonthlyReportResult;
 
 			if (selectedMonthlyBusinessUnit) {
-				// Use filtered search when business unit is selected
+				// Use filtered search with display names for Weekly Evolution
 				const handler = getPreloadHandler(
-					"getMonthlyReportRecordsByBusinessUnit",
+					"getMonthlyReportsByBusinessUnitWithDisplayNames",
 				);
 				result = (await handler(
 					selectedMonthlyBusinessUnit,
 				)) as MonthlyReportResult;
 			} else {
-				// Load all records when no filter is selected
-				const handler = getPreloadHandler("getAllMonthlyReportRecords");
+				// Load all records with display names for Weekly Evolution
+				const handler = getPreloadHandler("getMonthlyReportsWithDisplayNames");
 				result = (await handler()) as MonthlyReportResult;
 			}
 
@@ -699,7 +984,7 @@ function WeeklyReportComponent() {
 				if (result.success) {
 					await loadMonthlyReportRecords(); // Refresh the data
 					await loadDistinctMonthlyRequestStatuses(); // Refresh filter options
-					setSemanalRangeChangedMessage(null); // Clear warning message after successful Excel reload
+					setMonthlyDateRangeConfigChangedMessage(null); // Clear warning message after successful Excel reload
 				} else {
 					setMonthlyReportError(
 						result.error || "Failed to parse Excel file",
@@ -725,6 +1010,24 @@ function WeeklyReportComponent() {
 		}
 	}, [activeTab, selectedMonthlyBusinessUnit, loadMonthlyReportRecords]);
 
+	// Load corrective business units when monthly-report-data tab becomes active
+	useEffect(() => {
+		if (activeTab === "monthly-report-data") {
+			loadDistinctCorrectiveBusinessUnits();
+		}
+	}, [activeTab, loadDistinctCorrectiveBusinessUnits]);
+
+	// Load incident overview corrective data when monthly-report-data tab is active or filter changes
+	useEffect(() => {
+		if (activeTab === "monthly-report-data") {
+			loadIncidentOverviewCorrectiveData();
+		}
+	}, [
+		activeTab,
+		selectedCorrectiveBusinessUnit,
+		loadIncidentOverviewCorrectiveData,
+	]);
+
 	// Convert Set to Record for component compatibility
 	// Include ALL possible columns, setting them to true/false based on Set membership
 	const allMonthlyColumns = [
@@ -742,6 +1045,8 @@ function WeeklyReportComponent() {
 		"resolvedTime",
 		"affectedCountries",
 		"recurrence",
+		"recurrenceComputed",
+		"observations",
 		"technician",
 		"jira",
 		"problemId",
@@ -786,10 +1091,10 @@ function WeeklyReportComponent() {
 		return filtered;
 	}, [monthlyReportRecords, selectedMonthlyRequestStatus]);
 
-	// Filter monthly report records based on semanal filter mode
+	// Filter monthly report records based on InDateRange filter mode
 	const filteredMonthlyRecords = useMemo(() => {
-		// Apply semanal filter on top of request status filter
-		switch (semanalFilterMode) {
+		// Apply InDateRange filter on top of request status filter
+		switch (monthlyInDateRangeFilterMode) {
 			case "inRange":
 				return baseFilteredMonthlyRecords.filter(
 					(r) => r.inDateRange === true,
@@ -805,10 +1110,10 @@ function WeeklyReportComponent() {
 					(r) => r.inDateRange === true,
 				);
 		}
-	}, [baseFilteredMonthlyRecords, semanalFilterMode]);
+	}, [baseFilteredMonthlyRecords, monthlyInDateRangeFilterMode]);
 
-	// Calculate counts for the semanal filter component
-	const semanalCounts = useMemo(() => {
+	// Calculate counts for the InDateRange filter component
+	const monthlyInDateRangeCounts = useMemo(() => {
 		const inRangeCount = baseFilteredMonthlyRecords.filter(
 			(r) => r.inDateRange === true,
 		).length;
@@ -827,7 +1132,7 @@ function WeeklyReportComponent() {
 				? translatedCorrectiveMaintenanceData
 				: correctiveMaintenanceData;
 
-		switch (correctiveSemanalFilterMode) {
+		switch (correctiveInDateRangeFilterMode) {
 			case "inRange":
 				return records.filter((r) => r.inDateRange === true);
 			case "outOfRange":
@@ -840,11 +1145,11 @@ function WeeklyReportComponent() {
 	}, [
 		correctiveMaintenanceData,
 		translatedCorrectiveMaintenanceData,
-		correctiveSemanalFilterMode,
+		correctiveInDateRangeFilterMode,
 	]);
 
-	// Calculate counts for corrective maintenance semanal filter
-	const correctiveSemanalCounts = useMemo(() => {
+	// Calculate counts for corrective maintenance InDateRange filter
+	const correctiveInDateRangeCounts = useMemo(() => {
 		const records =
 			translatedCorrectiveMaintenanceData.length > 0
 				? translatedCorrectiveMaintenanceData
@@ -872,8 +1177,8 @@ function WeeklyReportComponent() {
 			);
 		}
 
-		// Respect semanal filter mode
-		switch (semanalFilterMode) {
+		// Respect InDateRange filter mode
+		switch (monthlyInDateRangeFilterMode) {
 			case "inRange":
 				filteredRecords = filteredRecords.filter(
 					(r) => r.inDateRange === true,
@@ -900,8 +1205,9 @@ function WeeklyReportComponent() {
 		>();
 
 		filteredRecords.forEach((record) => {
-			const module = record.module || "Unknown";
-			const categorization = record.categorization || "Unknown";
+			// Use display names if available (from mapping rules), otherwise use original values
+			const module = record.moduleDisplayName || record.module || "Unknown";
+			const categorization = record.categorizationDisplayName || record.categorization || "Unknown";
 			const additionalInfo =
 				record.informacionAdicionalReporte &&
 				record.informacionAdicionalReporte !== "No asignado"
@@ -1000,7 +1306,7 @@ function WeeklyReportComponent() {
 			.sort((a, b) => b.count - a.count); // Sort modules by count descending
 
 		return stats;
-	}, [monthlyReportRecords, selectedMonthlyBusinessUnit, semanalFilterMode]);
+	}, [monthlyReportRecords, selectedMonthlyBusinessUnit, monthlyInDateRangeFilterMode]);
 
 	const handleMonthlyColumnVisibilityChange = useCallback(
 		(columnKey: string, isVisible: boolean) => {
@@ -1052,6 +1358,14 @@ function WeeklyReportComponent() {
 				<h1 className="text-3xl font-bold text-gray-800 mb-6">
 					Weekly Report
 				</h1>
+
+				{/* Global Mode Toggle */}
+				<div className="mb-6">
+					<GlobalModeToggle
+						globalModeEnabled={globalModeEnabled}
+						onToggle={handleGlobalModeToggle}
+					/>
+				</div>
 
 				{/* Tab Navigation */}
 				<TabNavigation
@@ -1295,45 +1609,68 @@ function WeeklyReportComponent() {
 
 				{activeTab === "monthly-report-data" && (
 					<div className="mt-4">
-						{/* Semanal Date Range Settings */}
+						{/* Date Range Config Settings */}
 						<div className="mb-6">
-							<SemanalDateRangeSettings
-								onSettingsChange={(message) =>
-									setSemanalRangeChangedMessage(message)
-								}
+							<DateRangeConfigSettings
+								scope="monthly"
+								onSettingsChange={(message) => {
+									setMonthlyDateRangeConfigChangedMessage(message);
+									// If global mode is enabled, also set the message on the corrective tab
+									if (globalModeEnabled) {
+										setCorrectiveDateRangeConfigChangedMessage(message);
+									}
+								}}
 							/>
 						</div>
-
-						{/* Warning message when semanal range has been changed */}
-						{semanalRangeChangedMessage && (
-							<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-								<div className="flex items-start">
-									<div className="flex-shrink-0">
-										<svg
-											className="h-5 w-5 text-yellow-400"
-											fill="currentColor"
-											viewBox="0 0 20 20"
-										>
-											<path
-												fillRule="evenodd"
-												d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-												clipRule="evenodd"
-											/>
-										</svg>
-									</div>
-									<div className="ml-3">
-										<h3 className="text-sm font-medium text-yellow-800">
-											Excel Reload Required
-										</h3>
-										<p className="mt-1 text-sm text-yellow-700">
-											{semanalRangeChangedMessage} Please
-											upload your Excel file again to
-											reflect the new Semanal calculation
-											range.
-										</p>
-									</div>
+						{/* Warning message when date range config has been changed */}
+						{monthlyDateRangeConfigChangedMessage && (
+						<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+							<div className="flex items-start">
+								<div className="flex-shrink-0">
+									<svg
+										className="h-5 w-5 text-yellow-400"
+										fill="currentColor"
+										viewBox="0 0 20 20"
+									>
+										<path
+											fillRule="evenodd"
+											d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+											clipRule="evenodd"
+										/>
+									</svg>
 								</div>
+								<div className="ml-3 flex-1">
+									<h3 className="text-sm font-medium text-yellow-800">
+										Excel Reload Required
+									</h3>
+									<p className="mt-1 text-sm text-yellow-700">
+										{monthlyDateRangeConfigChangedMessage} Please
+										upload your Excel file again to reflect
+										the new date range configuration.
+									</p>
+								</div>
+								<button
+									type="button"
+									onClick={() =>
+										setMonthlyDateRangeConfigChangedMessage(null)
+									}
+									className="ml-3 inline-flex text-yellow-400 hover:text-yellow-500 focus:outline-none"
+								>
+									<span className="sr-only">Dismiss</span>
+									<svg
+										className="h-5 w-5"
+										viewBox="0 0 20 20"
+										fill="currentColor"
+									>
+										<path
+											fillRule="evenodd"
+											d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+											clipRule="evenodd"
+										/>
+									</svg>
+								</button>
 							</div>
+						</div>
 						)}
 
 						<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -1357,7 +1694,6 @@ function WeeklyReportComponent() {
 								</div>
 							</FileUploadSection>
 						</div>
-
 						<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
 							<div className="flex justify-between items-center mb-4">
 								<h2 className="text-xl font-semibold text-gray-900">
@@ -1403,13 +1739,13 @@ function WeeklyReportComponent() {
 								}
 							/>
 
-							{/* Semanal Range Filter */}
-							<SemanalFilter
-								filterMode={semanalFilterMode}
-								onFilterModeChange={setSemanalFilterMode}
-								inRangeCount={semanalCounts.inRangeCount}
-								outOfRangeCount={semanalCounts.outOfRangeCount}
-								totalCount={semanalCounts.totalCount}
+							{/* InDateRange Filter (Monthly) */}
+							<InDateRangeFilter
+								filterMode={monthlyInDateRangeFilterMode}
+								onFilterModeChange={setMonthlyInDateRangeFilterMode}
+								inRangeCount={monthlyInDateRangeCounts.inRangeCount}
+								outOfRangeCount={monthlyInDateRangeCounts.outOfRangeCount}
+								totalCount={monthlyInDateRangeCounts.totalCount}
 							/>
 
 							{filteredMonthlyRecords.length === 0 ? (
@@ -1435,13 +1771,61 @@ function WeeklyReportComponent() {
 												);
 											handler(url);
 										}}
+										onStatusChange={handleMonthlyReportStatusChange}
+										availableStatuses={availableMonthlyRequestStatuses}
 									/>
+
+									{/* Bug Categorization Table */}
+									{bugCategorizedLoading ? (
+										<div className="mt-6">
+											<LoadingState />
+										</div>
+									) : bugCategorizedError ? (
+										<div className="mt-6">
+											<ErrorState message={bugCategorizedError} />
+										</div>
+									) : (
+										<BugCategorizedTable data={bugCategorizedRecords} />
+									)}
+
+									{/* Scope Error Categorization Table */}
+									{scopeErrorCategorizedLoading ? (
+										<div className="mt-6">
+											<LoadingState />
+										</div>
+									) : scopeErrorCategorizedError ? (
+										<div className="mt-6">
+											<ErrorState message={scopeErrorCategorizedError} />
+										</div>
+									) : (
+										<ScopeErrorCategorizedTable data={scopeErrorCategorizedRecords} />
+									)}
 
 									{/* Weekly Evolution of Incidents Table */}
 									<WeeklyEvolutionTable
 										moduleStats={moduleStats}
 										businessUnit={
 											selectedMonthlyBusinessUnit
+										}
+									/>
+
+									{/* Incident Overview by Category Section */}
+									<IncidentOverviewSection
+										monthlyRecords={filteredMonthlyRecords}
+										correctiveRecords={
+											incidentOverviewCorrectiveData
+										}
+										businessUnit={
+											selectedMonthlyBusinessUnit
+										}
+										correctiveBusinessUnit={
+											selectedCorrectiveBusinessUnit
+										}
+										availableCorrectiveBusinessUnits={
+											availableCorrectiveBusinessUnits
+										}
+										onCorrectiveBusinessUnitChange={
+											setSelectedCorrectiveBusinessUnit
 										}
 									/>
 								</>
@@ -1452,19 +1836,22 @@ function WeeklyReportComponent() {
 
 				{activeTab === "corrective-maintenance" && (
 					<div className="mt-4">
-						{/* Semanal Date Range Settings */}
+						{/* Date Range Config Settings */}
 						<div className="mb-6">
-							<SemanalDateRangeSettings
-								onSettingsChange={(message) =>
-									setCorrectiveSemanalRangeChangedMessage(
-										message,
-									)
-								}
+							<DateRangeConfigSettings
+								scope="corrective"
+								onSettingsChange={(message) => {
+									setCorrectiveDateRangeConfigChangedMessage(message);
+									// If global mode is enabled, also set the message on the monthly tab
+									if (globalModeEnabled) {
+										setMonthlyDateRangeConfigChangedMessage(message);
+									}
+								}}
 							/>
 						</div>
 
-						{/* Warning message when semanal range has been changed */}
-						{correctiveSemanalRangeChangedMessage && (
+						{/* Warning message when date range config has been changed */}
+						{correctiveDateRangeConfigChangedMessage && (
 							<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
 								<div className="flex items-start">
 									<svg
@@ -1484,17 +1871,17 @@ function WeeklyReportComponent() {
 										</h3>
 										<p className="mt-1 text-sm text-yellow-700">
 											{
-												correctiveSemanalRangeChangedMessage
+												correctiveDateRangeConfigChangedMessage
 											}{" "}
 											Please upload your Excel file again
-											to reflect the new Semanal
-											calculation range.
+											to reflect the new date range
+											configuration.
 										</p>
 									</div>
 									<button
 										type="button"
 										onClick={() =>
-											setCorrectiveSemanalRangeChangedMessage(
+											setCorrectiveDateRangeConfigChangedMessage(
 												null,
 											)
 										}
@@ -1637,15 +2024,15 @@ function WeeklyReportComponent() {
 							onRequestStatusChange={setSelectedRequestStatus}
 						/>
 
-						{/* Semanal Range Filter */}
-						<SemanalFilter
-							filterMode={correctiveSemanalFilterMode}
-							onFilterModeChange={setCorrectiveSemanalFilterMode}
-							inRangeCount={correctiveSemanalCounts.inRangeCount}
+						{/* InDateRange Filter (Corrective) */}
+						<InDateRangeFilter
+							filterMode={correctiveInDateRangeFilterMode}
+							onFilterModeChange={setCorrectiveInDateRangeFilterMode}
+							inRangeCount={correctiveInDateRangeCounts.inRangeCount}
 							outOfRangeCount={
-								correctiveSemanalCounts.outOfRangeCount
+								correctiveInDateRangeCounts.outOfRangeCount
 							}
-							totalCount={correctiveSemanalCounts.totalCount}
+							totalCount={correctiveInDateRangeCounts.totalCount}
 						/>
 
 						{/* Column Visibility Controls */}
@@ -1661,6 +2048,21 @@ function WeeklyReportComponent() {
 								}));
 							}}
 						/>
+
+						{/* Quick View Button */}
+						<div className="flex gap-2 items-center mb-4">
+							<button
+								type="button"
+								onClick={handleQuickViewCorrectiveMaintenance}
+								className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium"
+							>
+								Quick View
+							</button>
+							<span className="text-sm text-gray-500">
+								Show: #, Request ID, Created Time, Module, Subject, Priority, Enlaces, ETA
+							</span>
+						</div>
+
 						<div className="overflow-x-auto">
 							{filteredCorrectiveRecords.length > 0 ? (
 								<table
@@ -1669,6 +2071,9 @@ function WeeklyReportComponent() {
 								>
 									<thead className="bg-gray-50">
 										<tr>
+											<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+												#
+											</th>
 											{visibleColumns.businessUnit && (
 												<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
 													Business Unit
@@ -1680,7 +2085,7 @@ function WeeklyReportComponent() {
 												</th>
 											)}
 											{visibleColumns.requestId && (
-												<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+												<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[60px] bg-gray-50 z-10">
 													Request ID
 												</th>
 											)}
@@ -1745,6 +2150,9 @@ function WeeklyReportComponent() {
 														index
 													}
 												>
+													<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium sticky left-0 bg-white z-10">
+														{index + 1}
+													</td>
 													{visibleColumns.businessUnit && (
 														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
 															{
@@ -1798,7 +2206,7 @@ function WeeklyReportComponent() {
 														</td>
 													)}
 													{visibleColumns.requestId && (
-														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 sticky left-[60px] bg-white z-10">
 															{record.requestIdLink ? (
 																<button
 																	type="button"
@@ -1828,7 +2236,25 @@ function WeeklyReportComponent() {
 													)}
 													{visibleColumns.createdTime && (
 														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-															{record.createdTime}
+															{(() => {
+																const createdTimeFormatted =
+																	formatEtaDate(
+																		record.createdTime,
+																	);
+																return createdTimeFormatted.original ? (
+																	<span
+																		title={
+																			createdTimeFormatted.original
+																		}
+																	>
+																		{
+																			createdTimeFormatted.display
+																		}
+																	</span>
+																) : (
+																	createdTimeFormatted.display
+																);
+															})()}
 														</td>
 													)}
 													{visibleColumns.applications && (

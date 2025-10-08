@@ -1,5 +1,5 @@
 import { promises as fs } from "fs";
-import { ExcelMonthlyReportParserImpl, SemanalDateRange } from "@app/core";
+import { ExcelMonthlyReportParserImpl, DateRangeConfig } from "@app/core";
 import { DateTime } from "luxon";
 import path from "path";
 
@@ -14,8 +14,8 @@ async function debugMonthlyInDateRange(): Promise<void> {
 		const fileBuffer = await fs.readFile(filePath);
 		console.log(`✅ File loaded: ${fileBuffer.length} bytes\n`);
 
-		// Create the active semanal range (Sept 19-25, 2025)
-		const semanalRange = new SemanalDateRange(
+		// Create the active date range config (Sept 19-25, 2025)
+		const dateRangeConfig = new DateRangeConfig(
 			1,
 			"2025-09-19", // Friday
 			"2025-09-25", // Thursday
@@ -25,18 +25,18 @@ async function debugMonthlyInDateRange(): Promise<void> {
 			new Date()
 		);
 
-		console.log("📅 Active Semanal Date Range:");
-		console.log(`   From: ${semanalRange.fromDate} (Friday)`);
-		console.log(`   To: ${semanalRange.toDate} (Thursday)`);
-		console.log(`   Duration: ${semanalRange.getDurationInDays()} days`);
+		console.log("📅 Active Date Range Config:");
+		console.log(`   From: ${dateRangeConfig.fromDate} (Friday)`);
+		console.log(`   To: ${dateRangeConfig.toDate} (Thursday)`);
+		console.log(`   Duration: ${dateRangeConfig.getDurationInDays()} days`);
 		console.log("");
 
-		// Parse with semanalDateRange
+		// Parse with dateRangeConfig
 		const parser = new ExcelMonthlyReportParserImpl();
 		const result = await parser.parseExcel(
 			fileBuffer.buffer,
 			"XD 2025 DATA INFORME MENSUAL - Current Month.xlsx",
-			semanalRange
+			dateRangeConfig
 		);
 
 		if (!result.success || !result.records) {

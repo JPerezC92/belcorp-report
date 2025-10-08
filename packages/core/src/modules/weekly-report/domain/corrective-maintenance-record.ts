@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import type { SemanalDateRange } from "./semanal-date-range.js";
+import type { DateRangeConfig } from "./date-range-config.js";
 
 // Domain Entity for Corrective Maintenance Records
 export class CorrectiveMaintenanceRecord {
@@ -39,7 +39,7 @@ export class CorrectiveMaintenanceRecord {
 		rca: string;
 		businessUnit: string;
 		inDateRange?: boolean; // Optional pre-calculated value from database
-		semanalDateRange?: SemanalDateRange; // Optional custom date range for inDateRange calculation
+		dateRangeConfig?: DateRangeConfig; // Optional custom date range for inDateRange calculation
 	}): CorrectiveMaintenanceRecord {
 		// Use provided inDateRange if available, otherwise calculate it
 		let inDateRange: boolean;
@@ -49,8 +49,8 @@ export class CorrectiveMaintenanceRecord {
 		} else {
 			// Calculate based on date range or fallback to current week
 			const dateTime = this.parseDateTime(data.createdTime);
-			inDateRange = data.semanalDateRange
-				? data.semanalDateRange.isDateInRange(dateTime)
+			inDateRange = data.dateRangeConfig
+				? data.dateRangeConfig.isDateInRange(dateTime)
 				: this.isCurrentWeek(dateTime);
 		}
 

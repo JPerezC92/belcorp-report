@@ -11,6 +11,7 @@ export interface CorrectiveMaintenanceRecordRepository {
 		requestStatus?: string
 	): Promise<CorrectiveMaintenanceRecord[]>;
 	getDistinctRequestStatuses(): Promise<string[]>;
+	getDistinctBusinessUnits(): Promise<string[]>;
 	drop(): Promise<void>;
 	findByRequestId(requestId: string): Promise<CorrectiveMaintenanceRecord[]>;
 	findByModule(module: string): Promise<CorrectiveMaintenanceRecord[]>;

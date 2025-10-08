@@ -74,9 +74,9 @@ function generateChecksum(migration: Migration): string {
 export const migrations: Migration[] = [
 	{
 		version: "001",
-		description: "Create tag table",
+		description: "Initialize database with all tables and default data",
 		up: (db: Database) => {
-			// Create tag table with current schema
+			// ===== TABLE 1: TAG =====
 			db.run(`
 				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.TAG} (
 					requestId TEXT PRIMARY KEY,
@@ -94,17 +94,1013 @@ export const migrations: Migration[] = [
 					processedAt TEXT DEFAULT CURRENT_TIMESTAMP
 				)
 			`);
-
-			// Create indexes for better performance
 			db.run(
 				`CREATE INDEX IF NOT EXISTS idx_tag_createdTime ON ${TABLE_NAMES.TAG}(createdTime)`
 			);
 			db.run(
 				`CREATE INDEX IF NOT EXISTS idx_tag_technician ON ${TABLE_NAMES.TAG}(technician)`
 			);
+
+			// ===== TABLE 2: FOR_TAGGING_DATA (with link columns from migration 006) =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.FOR_TAGGING_DATA} (
+					requestId TEXT PRIMARY KEY,
+					technician TEXT,
+					createdTime TEXT,
+					modulo TEXT,
+					subject TEXT,
+					problemId TEXT,
+					linkedRequestId TEXT,
+					category TEXT,
+					importedAt TEXT DEFAULT CURRENT_TIMESTAMP,
+					sourceFile TEXT,
+					requestIdLink TEXT,
+					subjectLink TEXT,
+					problemIdLink TEXT,
+					linkedRequestIdLink TEXT
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_category ON ${TABLE_NAMES.FOR_TAGGING_DATA}(category)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_technician ON ${TABLE_NAMES.FOR_TAGGING_DATA}(technician)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_createdTime ON ${TABLE_NAMES.FOR_TAGGING_DATA}(createdTime)`
+			);
+
+			// ===== TABLE 3: PARENT_CHILD_RELATIONSHIPS =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS} (
+					parentRequestId TEXT NOT NULL,
+					parentLink TEXT,
+					childRequestId TEXT NOT NULL,
+					childLink TEXT,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					PRIMARY KEY (parentRequestId, childRequestId)
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_parent_child_parentRequestId ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(parentRequestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_parent_child_childRequestId ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(childRequestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_parent_child_createdAt ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(createdAt)`
+			);
+
+			// ===== TABLE 4: CORRECTIVE_MAINTENANCE_RECORDS (with businessUnit and inDateRange) =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS} (
+					requestId TEXT PRIMARY KEY,
+					requestIdLink TEXT,
+					createdTime TEXT NOT NULL,
+					applications TEXT NOT NULL,
+					categorization TEXT NOT NULL,
+					requestStatus TEXT NOT NULL,
+					module TEXT NOT NULL,
+					subject TEXT NOT NULL,
+					subjectLink TEXT,
+					priority TEXT NOT NULL,
+					eta TEXT NOT NULL,
+					rca TEXT NOT NULL,
+					businessUnit TEXT NOT NULL DEFAULT 'Unknown',
+					inDateRange BOOLEAN DEFAULT 0,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestId ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_module ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(module)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_createdTime ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(createdTime)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestStatus ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestStatus)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_businessUnit ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(businessUnit)`
+			);
+
+			// ===== TABLE 5: MONTHLY_REPORT_RECORDS (with inDateRange renamed from semanal) =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MONTHLY_REPORT_RECORDS} (
+					requestId TEXT PRIMARY KEY,
+					applications TEXT NOT NULL,
+					categorization TEXT,
+					requestIdLink TEXT,
+					createdTime TEXT NOT NULL,
+					requestStatus TEXT NOT NULL,
+					module TEXT NOT NULL,
+					subject TEXT NOT NULL,
+					subjectLink TEXT,
+					priority TEXT,
+					eta TEXT,
+					additionalInfo TEXT,
+					resolvedTime TEXT,
+					affectedCountries TEXT,
+					recurrence TEXT,
+					recurrenceComputed TEXT,
+					technician TEXT,
+					jira TEXT,
+					problemId TEXT,
+					problemIdLink TEXT,
+					linkedRequestId TEXT,
+					linkedRequestIdLink TEXT,
+					requestOLAStatus TEXT,
+					escalationGroup TEXT,
+					affectedApplications TEXT,
+					shouldResolveLevel1 TEXT,
+					campaign TEXT,
+					cuv1 TEXT,
+					release TEXT,
+					rca TEXT,
+					businessUnit TEXT NOT NULL,
+					inDateRange BOOLEAN DEFAULT 0,
+					rep TEXT NOT NULL,
+					dia INTEGER NOT NULL,
+					week INTEGER NOT NULL,
+					priorityReporte TEXT,
+					requestStatusReporte TEXT NOT NULL,
+					informacionAdicionalReporte TEXT,
+					enlaces INTEGER DEFAULT 0,
+					mensaje TEXT,
+					observations TEXT,
+					statusModifiedByUser BOOLEAN DEFAULT 0,
+					createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_requestId ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(requestId)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_applications ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(applications)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_module ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(module)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_createdTime ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(createdTime)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_requestStatus ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(requestStatus)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_businessUnit ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(businessUnit)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_rep ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(rep)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_semanal ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(inDateRange)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_week ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(week)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_linkedRequestId ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(linkedRequestId)`
+			);
+
+			// ===== TABLE 6: DATE_RANGE_CONFIGS (with rangeType and scope from migration 014) =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.DATE_RANGE_CONFIGS} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					fromDate TEXT NOT NULL,
+					toDate TEXT NOT NULL,
+					description TEXT NOT NULL,
+					isActive BOOLEAN DEFAULT 1,
+					rangeType TEXT CHECK(rangeType IN ('weekly', 'custom', 'disabled')) DEFAULT 'disabled',
+					scope TEXT CHECK(scope IN ('monthly', 'corrective', 'global')) DEFAULT 'monthly',
+					createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_date_range_configs_active ON ${TABLE_NAMES.DATE_RANGE_CONFIGS}(isActive)`
+			);
+
+			// Insert 3 default date range configs (all disabled)
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.DATE_RANGE_CONFIGS}
+					(fromDate, toDate, description, isActive, rangeType, scope, createdAt, updatedAt)
+				VALUES
+					('2025-01-01', '2025-12-31', 'Monthly Range (Disabled)', 1, 'disabled', 'monthly', datetime('now'), datetime('now')),
+					('2025-01-01', '2025-12-31', 'Corrective Range (Disabled)', 1, 'disabled', 'corrective', datetime('now'), datetime('now')),
+					('2025-01-01', '2025-12-31', 'Global Range (Disabled)', 1, 'disabled', 'global', datetime('now'), datetime('now'))
+			`);
+
+			// ===== TABLE 7: DATE_RANGE_SETTINGS =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.DATE_RANGE_SETTINGS} (
+					id INTEGER PRIMARY KEY CHECK(id = 1),
+					globalModeEnabled INTEGER DEFAULT 0,
+					createdAt TEXT NOT NULL,
+					updatedAt TEXT NOT NULL
+				)
+			`);
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.DATE_RANGE_SETTINGS} (id, globalModeEnabled, createdAt, updatedAt)
+				VALUES (1, 0, datetime('now'), datetime('now'))
+			`);
+
+			// ===== TABLE 8: BUSINESS_UNIT_RULES =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.BUSINESS_UNIT_RULES} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					business_unit TEXT NOT NULL,
+					pattern TEXT NOT NULL,
+					pattern_type TEXT CHECK(pattern_type IN ('contains', 'regex', 'exact')) DEFAULT 'contains',
+					priority INTEGER DEFAULT 0,
+					active BOOLEAN DEFAULT 1,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_business_unit ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(business_unit)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_active ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(active)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_priority ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(priority)`
+			);
+
+			// Insert default business unit rules
+			const defaultRules = [
+				{
+					businessUnit: "FFVV",
+					pattern: "APP - Gestiona tu Negocio (SE)",
+					priority: 1,
+				},
+				{
+					businessUnit: "FFVV",
+					pattern: "APP - Crecer es Ganar (FFVV)",
+					priority: 2,
+				},
+				{ businessUnit: "FFVV", pattern: "Portal FFVV", priority: 3 },
+				{
+					businessUnit: "SB",
+					pattern: "Somos Belcorp 2.0",
+					priority: 4,
+				},
+				{
+					businessUnit: "SB",
+					pattern: "APP - SOMOS BELCORP",
+					priority: 5,
+				},
+				{ businessUnit: "UB-3", pattern: "Unete 3.0", priority: 6 },
+				{ businessUnit: "UN-2", pattern: "Unete 2.0", priority: 7 },
+				{
+					businessUnit: "CD",
+					pattern: "Catálogo Digital",
+					priority: 8,
+				},
+				{ businessUnit: "PROL", pattern: "PROL", priority: 9 },
+			];
+			const insertStmt = db.prepare(`
+				INSERT INTO ${TABLE_NAMES.BUSINESS_UNIT_RULES}
+				(business_unit, pattern, pattern_type, priority, active, created_at, updated_at)
+				VALUES (?, ?, 'contains', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`);
+			try {
+				defaultRules.forEach((rule) => {
+					insertStmt.run([
+						rule.businessUnit,
+						rule.pattern,
+						rule.priority,
+					]);
+				});
+			} finally {
+				insertStmt.free();
+			}
+
+			// ===== TABLE 9: MONTHLY_REPORT_STATUS_MAPPING_RULES =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					sourceStatus TEXT NOT NULL,
+					targetStatus TEXT NOT NULL,
+					patternType TEXT CHECK(patternType IN ('exact', 'contains', 'regex')) DEFAULT 'exact',
+					priority INTEGER NOT NULL,
+					active INTEGER NOT NULL DEFAULT 1,
+					createdAt TEXT NOT NULL,
+					updatedAt TEXT NOT NULL
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_monthly_report_status_mapping_priority ON ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}(priority, active)`
+			);
+
+			// Insert default status mappings
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}
+					(sourceStatus, targetStatus, patternType, priority, active, createdAt, updatedAt)
+				VALUES
+					('En Mantenimiento Correctivo', 'In L3 Backlog', 'exact', 10, 1, datetime('now'), datetime('now')),
+					('Dev in Progress', 'In L3 Backlog', 'exact', 11, 1, datetime('now'), datetime('now')),
+					('Nivel 2', 'On going in L2', 'exact', 20, 1, datetime('now'), datetime('now')),
+					('Nivel 3', 'On going in L3', 'exact', 30, 1, datetime('now'), datetime('now')),
+					('Validado', 'Closed', 'exact', 40, 1, datetime('now'), datetime('now')),
+					('Closed', 'Closed', 'exact', 41, 1, datetime('now'), datetime('now'))
+			`);
+
+			// ===== TABLE 10: MODULE_CATEGORIZATION_DISPLAY_RULES =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MODULE_CATEGORIZATION_DISPLAY_RULES} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					rule_type TEXT CHECK(rule_type IN ('module', 'categorization')),
+					source_value TEXT NOT NULL,
+					display_value TEXT NOT NULL,
+					pattern_type TEXT CHECK(pattern_type IN ('exact', 'contains', 'regex')) DEFAULT 'exact',
+					priority INTEGER DEFAULT 0,
+					active BOOLEAN DEFAULT 1,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_display_rules_type_active ON ${TABLE_NAMES.MODULE_CATEGORIZATION_DISPLAY_RULES}(rule_type, active)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_display_rules_priority ON ${TABLE_NAMES.MODULE_CATEGORIZATION_DISPLAY_RULES}(priority)`
+			);
+
+			// Insert default display rules
+			const defaultDisplayRules = [
+				// Categorization rules
+				{
+					ruleType: "categorization",
+					sourceValue: "Error de codificación (Bug)",
+					displayValue: "Bugs",
+					patternType: "exact",
+					priority: 1,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue: "Error de Alcance",
+					displayValue: "Missing Scope",
+					patternType: "exact",
+					priority: 2,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue: "Error de usuario",
+					displayValue: "User Mistake",
+					patternType: "exact",
+					priority: 3,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue: "Error de datos (Data Source)",
+					displayValue: "Data Source",
+					patternType: "exact",
+					priority: 4,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue: "Informativa (Inquiries)",
+					displayValue: "Inquiry",
+					patternType: "exact",
+					priority: 5,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue: "Error por Cambio",
+					displayValue: "Change/Release",
+					patternType: "exact",
+					priority: 6,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue: "Error de Infraestructura",
+					displayValue: "Infrastructure Error",
+					patternType: "exact",
+					priority: 7,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue:
+						"Error de interfaces (Sync Data & Integration)",
+					displayValue: "Sync Data & Integration",
+					patternType: "exact",
+					priority: 8,
+				},
+				{
+					ruleType: "categorization",
+					sourceValue: "Error de configuración",
+					displayValue: "Configuration Error",
+					patternType: "exact",
+					priority: 9,
+				},
+
+				// Module rules - CD (Catalog/Digital)
+				{
+					ruleType: "module",
+					sourceValue: "CD Catalog",
+					displayValue: "Catalog",
+					patternType: "exact",
+					priority: 100,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "CD Catalogos Personalizados",
+					displayValue: "Custom Catalogs",
+					patternType: "exact",
+					priority: 101,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "CD Checkout Entrega Inmediata",
+					displayValue: "Checkout Immediate Delivery",
+					patternType: "exact",
+					priority: 102,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "CD Checkout prepedidos",
+					displayValue: "Checkout Pre-orders",
+					patternType: "exact",
+					priority: 103,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "CD Login",
+					displayValue: "Login",
+					patternType: "exact",
+					priority: 104,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "CD Pdp",
+					displayValue: "PDP",
+					patternType: "exact",
+					priority: 105,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "CD Search",
+					displayValue: "Search",
+					patternType: "exact",
+					priority: 106,
+				},
+
+				// Module rules - FFVV
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Avance de facturación",
+					displayValue: "Billing Progress",
+					patternType: "exact",
+					priority: 200,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Bolsa de pedidos",
+					displayValue: "Order Bag",
+					patternType: "exact",
+					priority: 201,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Botón ciclo de nuevas",
+					displayValue: "New Cycle Button",
+					patternType: "exact",
+					priority: 202,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Botón retención y capi",
+					displayValue: "Retention & Capi Button",
+					patternType: "exact",
+					priority: 203,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Botón venta pedido pnmp",
+					displayValue: "PNMP Order Sale Button",
+					patternType: "exact",
+					priority: 204,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Buscar consultora",
+					displayValue: "Search Consultant",
+					patternType: "exact",
+					priority: 205,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Cobranzas",
+					displayValue: "Collections",
+					patternType: "exact",
+					priority: 206,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Consulta postulante",
+					displayValue: "Applicant Query",
+					patternType: "exact",
+					priority: 207,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Data Report (reportes de campaña)",
+					displayValue: "Data Report",
+					patternType: "exact",
+					priority: 208,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Listado socias",
+					displayValue: "Partners List",
+					patternType: "exact",
+					priority: 209,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Login (ingreso al app)",
+					displayValue: "Login",
+					patternType: "exact",
+					priority: 210,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Perfil consultora",
+					displayValue: "Consultant Profile",
+					patternType: "exact",
+					priority: 211,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Perfil socia",
+					displayValue: "Partner Profile",
+					patternType: "exact",
+					priority: 212,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Problemas de data",
+					displayValue: "Data Issues",
+					patternType: "exact",
+					priority: 213,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Proyección de campaña",
+					displayValue: "Campaign Projection",
+					patternType: "exact",
+					priority: 214,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Reporte Semáforo",
+					displayValue: "Traffic Light Report",
+					patternType: "exact",
+					priority: 215,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Ruta de desarrollo",
+					displayValue: "Development Path",
+					patternType: "exact",
+					priority: 216,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "FFVV Unete",
+					displayValue: "Unete",
+					patternType: "exact",
+					priority: 217,
+				},
+
+				// Module rules - SB2 (Somos Belcorp 2.0)
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Actualizar Matriz",
+					displayValue: "Update Matrix",
+					patternType: "exact",
+					priority: 300,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Bonificaciones",
+					displayValue: "Bonuses",
+					patternType: "exact",
+					priority: 301,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Cambios y devoluciones",
+					displayValue: "Changes & Returns",
+					patternType: "exact",
+					priority: 302,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Carrito Sugerido",
+					displayValue: "Suggested Cart",
+					patternType: "exact",
+					priority: 303,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Catálogos y Revistas",
+					displayValue: "Catalogs & Magazines",
+					patternType: "exact",
+					priority: 304,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 ChatBot",
+					displayValue: "ChatBot",
+					patternType: "exact",
+					priority: 305,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Descarga de Pedidos",
+					displayValue: "Order Download",
+					patternType: "exact",
+					priority: 306,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Entrega instantanea",
+					displayValue: "Instant Delivery",
+					patternType: "exact",
+					priority: 307,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Festivales",
+					displayValue: "Festivals",
+					patternType: "exact",
+					priority: 308,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Gana Refiriendo",
+					displayValue: "Earn by Referring",
+					patternType: "exact",
+					priority: 309,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Liquidaciones",
+					displayValue: "Clearance",
+					patternType: "exact",
+					priority: 310,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Login (cuentas de usuario)",
+					displayValue: "Login",
+					patternType: "exact",
+					priority: 311,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Material de Redes Sociales",
+					displayValue: "Social Media Material",
+					patternType: "exact",
+					priority: 312,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Matriz/Estrategia",
+					displayValue: "Matrix/Strategy",
+					patternType: "exact",
+					priority: 313,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Mi Tienda Online",
+					displayValue: "My Online Store",
+					patternType: "exact",
+					priority: 314,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Multipedido",
+					displayValue: "Multi-Order",
+					patternType: "exact",
+					priority: 315,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 New Home",
+					displayValue: "New Home",
+					patternType: "exact",
+					priority: 316,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Oferta Final",
+					displayValue: "Final Offer",
+					patternType: "exact",
+					priority: 317,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Ofertas Gana+",
+					displayValue: "Gana+ Offers",
+					patternType: "exact",
+					priority: 318,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Otros",
+					displayValue: "Others",
+					patternType: "exact",
+					priority: 319,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Pago de Contado",
+					displayValue: "Cash Payment",
+					patternType: "exact",
+					priority: 320,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Pago en Línea",
+					displayValue: "Online Payment",
+					patternType: "exact",
+					priority: 321,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Pase de Pedidos",
+					displayValue: "Order Placement",
+					patternType: "exact",
+					priority: 322,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Pedidos de Campaña",
+					displayValue: "Campaign Orders",
+					patternType: "exact",
+					priority: 323,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Productos Sugeridos",
+					displayValue: "Suggested Products",
+					patternType: "exact",
+					priority: 324,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Programa de Nuevas",
+					displayValue: "New Consultants Program",
+					patternType: "exact",
+					priority: 325,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Reactivación de Pedidos",
+					displayValue: "Order Reactivation",
+					patternType: "exact",
+					priority: 326,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Reporte Pedidos Digitados",
+					displayValue: "Entered Orders Report",
+					patternType: "exact",
+					priority: 327,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Reserva de Pedidos",
+					displayValue: "Order Reservation",
+					patternType: "exact",
+					priority: 328,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 RxP-Tombola",
+					displayValue: "RxP-Raffle",
+					patternType: "exact",
+					priority: 329,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 SAC/ Contenido",
+					displayValue: "SAC/Content",
+					patternType: "exact",
+					priority: 330,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Tracking de Pedidos",
+					displayValue: "Order Tracking",
+					patternType: "exact",
+					priority: 331,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 VaIidación Automática",
+					displayValue: "Automatic Validation",
+					patternType: "exact",
+					priority: 332,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Zona de Todas Ofertas",
+					displayValue: "All Offers Zone",
+					patternType: "exact",
+					priority: 333,
+				},
+
+				// Module rules - Unete
+				{
+					ruleType: "module",
+					sourceValue: "Unete Actualizar Información",
+					displayValue: "Actualizar Información",
+					patternType: "exact",
+					priority: 400,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Aprobación FFVV",
+					displayValue: "Aprobación FFVV",
+					patternType: "exact",
+					priority: 401,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Belcorp Validación",
+					displayValue: "Belcorp Validación",
+					patternType: "exact",
+					priority: 402,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Buro",
+					displayValue: "Buro",
+					patternType: "exact",
+					priority: 403,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Cambio de Fuente Ingreso",
+					displayValue: "Cambio de Fuente Ingreso",
+					patternType: "exact",
+					priority: 404,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Carga de documentos",
+					displayValue: "Carga de documentos",
+					patternType: "exact",
+					priority: 405,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Generación de código",
+					displayValue: "Generación de código",
+					patternType: "exact",
+					priority: 406,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Gestiona Postulante",
+					displayValue: "Gestiona Postulante",
+					patternType: "exact",
+					priority: 407,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Primer Pedido Aprobado",
+					displayValue: "Primer Pedido Aprobado",
+					patternType: "exact",
+					priority: 408,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Sesion Modo Prueba",
+					displayValue: "Sesion Modo Prueba",
+					patternType: "exact",
+					priority: 409,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Unete Validación",
+					displayValue: "Unete Validación",
+					patternType: "exact",
+					priority: 410,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Validación Identidad",
+					displayValue: "Validación Identidad",
+					patternType: "exact",
+					priority: 411,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Validación Pin",
+					displayValue: "Validación Pin",
+					patternType: "exact",
+					priority: 412,
+				},
+				{
+					ruleType: "module",
+					sourceValue: "Unete Zonificación",
+					displayValue: "Zonificación",
+					patternType: "exact",
+					priority: 413,
+				},
+			];
+
+			const insertDisplayRuleStmt = db.prepare(`
+				INSERT INTO ${TABLE_NAMES.MODULE_CATEGORIZATION_DISPLAY_RULES}
+				(rule_type, source_value, display_value, pattern_type, priority, active, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			`);
+
+			try {
+				defaultDisplayRules.forEach((rule) => {
+					insertDisplayRuleStmt.run([
+						rule.ruleType,
+						rule.sourceValue,
+						rule.displayValue,
+						rule.patternType,
+						rule.priority,
+					]);
+				});
+			} finally {
+				insertDisplayRuleStmt.free();
+			}
+
+			// ===== TABLE 11: WAR_ROOM_RECORDS =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.WAR_ROOM_RECORDS} (
+					application TEXT NOT NULL,
+					date TEXT NOT NULL,
+					incidentId TEXT PRIMARY KEY,
+					incidentIdLink TEXT,
+					summary TEXT NOT NULL,
+					initialPriority TEXT NOT NULL,
+					startTime TEXT NOT NULL,
+					durationMinutes INTEGER NOT NULL,
+					endTime TEXT NOT NULL,
+					participants INTEGER NOT NULL,
+					status TEXT NOT NULL,
+					priorityChanged TEXT NOT NULL,
+					resolutionTeamChanged TEXT NOT NULL,
+					notes TEXT NOT NULL,
+					rcaStatus TEXT,
+					urlRca TEXT,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_war_room_application ON ${TABLE_NAMES.WAR_ROOM_RECORDS}(application)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_war_room_date ON ${TABLE_NAMES.WAR_ROOM_RECORDS}(date)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_war_room_status ON ${TABLE_NAMES.WAR_ROOM_RECORDS}(status)`
+			);
+
+			console.log(
+				"✅ Database initialized with all tables and default data"
+			);
 		},
 		down: (db: Database) => {
 			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.TAG}`);
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.FOR_TAGGING_DATA}`);
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}`
+			);
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}`
+			);
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}`
+			);
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.DATE_RANGE_CONFIGS}`);
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.DATE_RANGE_SETTINGS}`);
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.BUSINESS_UNIT_RULES}`);
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}`
+			);
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.MODULE_CATEGORIZATION_DISPLAY_RULES}`
+			);
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.WAR_ROOM_RECORDS}`);
 		},
 	},
 	{
@@ -205,724 +1201,6 @@ export const migrations: Migration[] = [
 		},
 		down: (db: Database) => {
 			db.run(`DELETE FROM ${TABLE_NAMES.TAG}`);
-		},
-	},
-	{
-		version: "004",
-		description:
-			"Migrate existing tag table to use requestId as primary key",
-		dependencies: ["003"],
-		up: (db: Database) => {
-			// Check if the table has the old schema with id column
-			const schemaResult = db.exec(`
-				PRAGMA table_info(${TABLE_NAMES.TAG})
-			`);
-
-			const hasIdColumn = schemaResult[0]?.values.some(
-				(row) => row[1] === "id"
-			);
-
-			if (hasIdColumn) {
-				// Create new table with correct schema
-				db.run(`
-					CREATE TABLE tag_new (
-						requestId TEXT PRIMARY KEY,
-						createdTime TEXT,
-						requestIdLink TEXT,
-						informacionAdicional TEXT,
-						modulo TEXT,
-						problemId TEXT,
-						problemIdLink TEXT,
-						linkedRequestIdValue TEXT,
-						linkedRequestIdLink TEXT,
-						jira TEXT,
-						categorizacion TEXT,
-						technician TEXT,
-						processedAt TEXT DEFAULT CURRENT_TIMESTAMP
-					)
-				`);
-
-				// Copy data from old table to new table
-				db.run(`
-					INSERT INTO tag_new (
-						requestId, createdTime, requestIdLink, informacionAdicional,
-						modulo, problemId, problemIdLink, linkedRequestIdValue,
-						linkedRequestIdLink, jira, categorizacion, technician, processedAt
-					)
-					SELECT
-						requestId, createdTime, requestIdLink, informacionAdicional,
-						modulo, problemId, problemIdLink, linkedRequestIdValue,
-						linkedRequestIdLink, jira, categorizacion, technician, processedAt
-					FROM ${TABLE_NAMES.TAG}
-				`);
-
-				// Drop old table and rename new table
-				db.run(`DROP TABLE ${TABLE_NAMES.TAG}`);
-				db.run(`ALTER TABLE tag_new RENAME TO ${TABLE_NAMES.TAG}`);
-
-				// Recreate indexes
-				db.run(
-					`CREATE INDEX IF NOT EXISTS idx_tag_createdTime ON ${TABLE_NAMES.TAG}(createdTime)`
-				);
-				db.run(
-					`CREATE INDEX IF NOT EXISTS idx_tag_technician ON ${TABLE_NAMES.TAG}(technician)`
-				);
-
-				console.log(
-					"✅ Migrated tag table to use requestId as primary key"
-				);
-			} else {
-				console.log(
-					"ℹ️ tag table already uses requestId as primary key"
-				);
-			}
-		},
-		down: (_db: Database) => {
-			// This migration is not easily reversible as it changes the primary key
-			// In a production system, you would need to backup data and restore
-			console.warn(
-				"⚠️ Cannot rollback migration 004 - primary key change"
-			);
-		},
-	},
-	{
-		version: "005",
-		description: "Create for_tagging_data table for Excel import data",
-		dependencies: ["004"],
-		up: (db: Database) => {
-			db.run(`
-				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.FOR_TAGGING_DATA} (
-					requestId TEXT PRIMARY KEY,
-					technician TEXT,
-					createdTime TEXT,
-					modulo TEXT,
-					subject TEXT,
-					problemId TEXT,
-					linkedRequestId TEXT,
-					category TEXT,
-					importedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-					sourceFile TEXT
-				)
-			`);
-
-			// Create indexes for better query performance
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_category ON ${TABLE_NAMES.FOR_TAGGING_DATA}(category)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_technician ON ${TABLE_NAMES.FOR_TAGGING_DATA}(technician)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_createdTime ON ${TABLE_NAMES.FOR_TAGGING_DATA}(createdTime)`
-			);
-		},
-		down: (db: Database) => {
-			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.FOR_TAGGING_DATA}`);
-		},
-	},
-	{
-		version: "006",
-		description: "Add link columns to for_tagging_data table",
-		dependencies: ["005"],
-		up: (db: Database) => {
-			// Add link columns to existing table
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN requestIdLink TEXT`
-			);
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN subjectLink TEXT`
-			);
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN problemIdLink TEXT`
-			);
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN linkedRequestIdLink TEXT`
-			);
-		},
-		down: (db: Database) => {
-			// SQLite doesn't support dropping columns, so we recreate the table without link columns
-			db.run(`
-				CREATE TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
-					requestId TEXT PRIMARY KEY,
-					technician TEXT,
-					createdTime TEXT,
-					modulo TEXT,
-					subject TEXT,
-					problemId TEXT,
-					linkedRequestId TEXT,
-					category TEXT,
-					importedAt TEXT DEFAULT CURRENT_TIMESTAMP,
-					sourceFile TEXT
-				)
-			`);
-
-			// Copy data from old table to new table (excluding link columns)
-			db.run(`
-				INSERT INTO ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
-					requestId, technician, createdTime, modulo, subject,
-					problemId, linkedRequestId, category, importedAt, sourceFile
-				)
-				SELECT requestId, technician, createdTime, modulo, subject,
-					   problemId, linkedRequestId, category, importedAt, sourceFile
-				FROM ${TABLE_NAMES.FOR_TAGGING_DATA}
-			`);
-
-			// Drop old table and rename new table
-			db.run(`DROP TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}`);
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp RENAME TO ${TABLE_NAMES.FOR_TAGGING_DATA}`
-			);
-
-			// Recreate indexes
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_category ON ${TABLE_NAMES.FOR_TAGGING_DATA}(category)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_technician ON ${TABLE_NAMES.FOR_TAGGING_DATA}(technician)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_createdTime ON ${TABLE_NAMES.FOR_TAGGING_DATA}(createdTime)`
-			);
-		},
-	},
-	{
-		version: "007",
-		description:
-			"Remove importedAt and sourceFile columns from for_tagging_data table",
-		dependencies: ["006"],
-		up: (db: Database) => {
-			// Create new table without importedAt and sourceFile columns
-			db.run(`
-				CREATE TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
-					requestId TEXT PRIMARY KEY,
-					technician TEXT,
-					createdTime TEXT,
-					modulo TEXT,
-					subject TEXT,
-					problemId TEXT,
-					linkedRequestId TEXT,
-					category TEXT,
-					requestIdLink TEXT,
-					subjectLink TEXT,
-					problemIdLink TEXT,
-					linkedRequestIdLink TEXT
-				)
-			`);
-
-			// Copy data from old table to new table (excluding importedAt and sourceFile)
-			db.run(`
-				INSERT INTO ${TABLE_NAMES.FOR_TAGGING_DATA}_temp (
-					requestId, technician, createdTime, modulo, subject, problemId,
-					linkedRequestId, category, requestIdLink, subjectLink,
-					problemIdLink, linkedRequestIdLink
-				)
-				SELECT
-					requestId, technician, createdTime, modulo, subject, problemId,
-					linkedRequestId, category, requestIdLink, subjectLink,
-					problemIdLink, linkedRequestIdLink
-				FROM ${TABLE_NAMES.FOR_TAGGING_DATA}
-			`);
-
-			// Drop old table
-			db.run(`DROP TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}`);
-
-			// Rename new table to original name
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA}_temp RENAME TO ${TABLE_NAMES.FOR_TAGGING_DATA}`
-			);
-
-			// Recreate indexes
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_category ON ${TABLE_NAMES.FOR_TAGGING_DATA}(category)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_technician ON ${TABLE_NAMES.FOR_TAGGING_DATA}(technician)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_for_tagging_data_createdTime ON ${TABLE_NAMES.FOR_TAGGING_DATA}(createdTime)`
-			);
-		},
-		down: (db: Database) => {
-			// Add back the columns (reverse migration)
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN importedAt TEXT DEFAULT CURRENT_TIMESTAMP`
-			);
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.FOR_TAGGING_DATA} ADD COLUMN sourceFile TEXT`
-			);
-		},
-	},
-	{
-		version: "002",
-		description: "Create parent child relationships table",
-		up: (db: Database) => {
-			// Create parent_child_relationships table
-			db.run(`
-				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS} (
-					parentRequestId TEXT NOT NULL,
-					parentLink TEXT,
-					childRequestId TEXT NOT NULL,
-					childLink TEXT,
-					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-					PRIMARY KEY (parentRequestId, childRequestId)
-				)
-			`);
-
-			// Create indexes for better performance
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_parent_child_parentRequestId ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(parentRequestId)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_parent_child_childRequestId ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(childRequestId)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_parent_child_createdAt ON ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}(createdAt)`
-			);
-		},
-		down: (db: Database) => {
-			// Drop the table
-			db.run(
-				`DROP TABLE IF EXISTS ${TABLE_NAMES.PARENT_CHILD_RELATIONSHIPS}`
-			);
-		},
-	},
-	{
-		version: "008",
-		description: "Create corrective maintenance records table",
-		dependencies: ["002"],
-		up: (db: Database) => {
-			// Create corrective_maintenance_records table
-			db.run(`
-				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS} (
-					requestId TEXT PRIMARY KEY,
-					requestIdLink TEXT,
-					createdTime TEXT NOT NULL,
-					applications TEXT NOT NULL,
-					categorization TEXT NOT NULL,
-					requestStatus TEXT NOT NULL,
-					module TEXT NOT NULL,
-					subject TEXT NOT NULL,
-					subjectLink TEXT,
-					priority TEXT NOT NULL,
-					eta TEXT NOT NULL,
-					rca TEXT NOT NULL,
-					businessUnit TEXT NOT NULL,
-					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-				)
-			`);
-
-			// Create indexes for better performance
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestId ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestId)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_module ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(module)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_createdTime ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(createdTime)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestStatus ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestStatus)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_businessUnit ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(businessUnit)`
-			);
-		},
-		down: (db: Database) => {
-			// Drop the table
-			db.run(
-				`DROP TABLE IF EXISTS ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}`
-			);
-		},
-	},
-	{
-		version: "009",
-		description:
-			"Add businessUnit column to corrective maintenance records table",
-		dependencies: ["008"],
-		up: (db: Database) => {
-			// Check if businessUnit column exists, add it if missing
-			const tableInfo = db.exec(
-				`PRAGMA table_info(${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS})`
-			);
-			const hasBusinessUnitColumn = tableInfo[0]?.values.some(
-				(row: unknown[]) => row[1] === "businessUnit"
-			);
-
-			if (!hasBusinessUnitColumn) {
-				console.log(
-					"Adding missing businessUnit column to corrective_maintenance_records table"
-				);
-				db.run(
-					`ALTER TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS} ADD COLUMN businessUnit TEXT NOT NULL DEFAULT 'Unknown'`
-				);
-
-				// Create index for the new column
-				db.run(
-					`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_businessUnit ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(businessUnit)`
-				);
-			}
-		},
-		down: (db: Database) => {
-			// SQLite doesn't support dropping columns, so we recreate the table without businessUnit
-			db.run(`
-				CREATE TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}_temp (
-					requestId TEXT PRIMARY KEY,
-					requestIdLink TEXT,
-					createdTime TEXT NOT NULL,
-					applications TEXT NOT NULL,
-					categorization TEXT NOT NULL,
-					requestStatus TEXT NOT NULL,
-					module TEXT NOT NULL,
-					subject TEXT NOT NULL,
-					subjectLink TEXT,
-					priority TEXT NOT NULL,
-					eta TEXT NOT NULL,
-					rca TEXT NOT NULL,
-					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-				)
-			`);
-
-			// Copy data from old table to new table (excluding businessUnit column)
-			db.run(`
-				INSERT INTO ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}_temp (
-					requestId, requestIdLink, createdTime, applications, categorization,
-					requestStatus, module, subject, subjectLink, priority, eta, rca, createdAt, updatedAt
-				)
-				SELECT requestId, requestIdLink, createdTime, applications, categorization,
-					   requestStatus, module, subject, subjectLink, priority, eta, rca, createdAt, updatedAt
-				FROM ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}
-			`);
-
-			// Drop old table and rename new table
-			db.run(`DROP TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}`);
-			db.run(
-				`ALTER TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}_temp RENAME TO ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}`
-			);
-
-			// Recreate indexes
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestId ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestId)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_module ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(module)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_createdTime ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(createdTime)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_corrective_maintenance_requestStatus ON ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}(requestStatus)`
-			);
-		},
-	},
-	{
-		version: "010",
-		description: "Create monthly report records table with complete schema",
-		dependencies: ["002"],
-		up: (db: Database) => {
-			// Create monthly_report_records table with all Excel columns and computed fields
-			db.run(`
-				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MONTHLY_REPORT_RECORDS} (
-					-- Primary key
-					requestId TEXT PRIMARY KEY,
-
-					-- Excel columns (25 total) - Spanish names in comments
-					applications TEXT NOT NULL,           -- Aplicativos
-					categorization TEXT,                  -- Categorización
-					requestIdLink TEXT,                   -- Request ID (hyperlink)
-					createdTime TEXT NOT NULL,            -- Created Time
-					requestStatus TEXT NOT NULL,          -- Request Status
-					module TEXT NOT NULL,                 -- Modulo.
-					subject TEXT NOT NULL,                -- Subject
-					subjectLink TEXT,                     -- Subject (hyperlink)
-					priority TEXT,                        -- Priority
-					eta TEXT,                             -- ETA
-					additionalInfo TEXT,                  -- Información Adicional
-					resolvedTime TEXT,                    -- Resolved Time
-					affectedCountries TEXT,               -- Países Afectados
-					recurrence TEXT,                      -- Recurrencia
-					technician TEXT,                      -- Technician
-					jira TEXT,                           -- Jira
-					problemId TEXT,                      -- Problem ID
-					problemIdLink TEXT,                  -- Problem ID (hyperlink)
-					linkedRequestId TEXT,                -- Linked Request Id
-					linkedRequestIdLink TEXT,            -- Linked Request Id (hyperlink)
-					requestOLAStatus TEXT,               -- Request OLA Status
-					escalationGroup TEXT,                -- Grupo Escalamiento
-					affectedApplications TEXT,           -- Aplicactivos Afectados
-					shouldResolveLevel1 TEXT,            -- ¿Este Incidente se debió Resolver en Nivel 1?
-					campaign TEXT,                       -- Campaña
-					cuv1 TEXT,                          -- CUV_1
-					release TEXT,                       -- Release
-					rca TEXT,                          -- RCA
-
-					-- Computed columns
-					businessUnit TEXT NOT NULL,         -- Derived from applications
-					semanal BOOLEAN DEFAULT 0,          -- Is from current week
-					rep TEXT NOT NULL,                  -- Business unit code
-					dia INTEGER NOT NULL,               -- Day of month
-					week INTEGER NOT NULL,              -- ISO week number
-					priorityReporte TEXT,                -- Mapped priority to English
-					requestStatusReporte TEXT NOT NULL, -- Mapped status for reporting
-					informacionAdicionalReporte TEXT,   -- Validated additional info
-					enlaces INTEGER DEFAULT 0,          -- Count of linked tickets
-					mensaje TEXT,                       -- Formatted message
-					statusModifiedByUser BOOLEAN DEFAULT 0, -- Track user modifications
-
-					-- Metadata
-					createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
-					updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
-				)
-			`);
-
-			// Create indexes for better performance
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_requestId ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(requestId)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_applications ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(applications)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_module ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(module)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_createdTime ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(createdTime)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_requestStatus ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(requestStatus)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_businessUnit ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(businessUnit)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_rep ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(rep)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_semanal ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(semanal)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_week ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(week)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_monthly_report_linkedRequestId ON ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}(linkedRequestId)`
-			);
-		},
-		down: (db: Database) => {
-			// Drop the table
-			db.run(
-				`DROP TABLE IF EXISTS ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}`
-			);
-		},
-	},
-	{
-		version: "005",
-		description: "Create semanal date ranges table",
-		dependencies: ["004"],
-		up: (db: Database) => {
-			// Create semanal_date_ranges table
-			db.run(`
-				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.SEMANAL_DATE_RANGES} (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					fromDate TEXT NOT NULL,          -- Start date (Friday) in ISO format
-					toDate TEXT NOT NULL,            -- End date (Thursday) in ISO format
-					description TEXT NOT NULL,        -- e.g., "Cut to Thursday"
-					isActive BOOLEAN DEFAULT 1,      -- Currently active range
-					createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-					updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-				)
-			`);
-
-			// Create index for faster queries
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_semanal_date_ranges_active ON ${TABLE_NAMES.SEMANAL_DATE_RANGES}(isActive)`
-			);
-
-			// Insert default Friday-Thursday range
-			// Calculate default range based on most recent Thursday
-			const now = new Date();
-			const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-
-			// Find the most recent Thursday (day 4)
-			let daysToSubtract = dayOfWeek - 4; // Thursday is day 4
-			if (daysToSubtract < 0) daysToSubtract += 7; // If we're before Thursday, go to previous week's Thursday
-
-			const mostRecentThursday = new Date(now);
-			mostRecentThursday.setDate(now.getDate() - daysToSubtract);
-			mostRecentThursday.setHours(23, 59, 59, 999); // End of Thursday
-
-			// Friday is 1 day after Thursday minus 7 days (previous Friday)
-			const previousFriday = new Date(mostRecentThursday);
-			previousFriday.setDate(mostRecentThursday.getDate() - 6); // 6 days before Thursday
-			previousFriday.setHours(0, 0, 0, 0); // Start of Friday
-
-			const fromDate = previousFriday
-				.toISOString()
-				.split("T")[0] as string; // YYYY-MM-DD format
-			const toDate = mostRecentThursday
-				.toISOString()
-				.split("T")[0] as string; // YYYY-MM-DD format
-
-			db.run(
-				`
-				INSERT INTO ${TABLE_NAMES.SEMANAL_DATE_RANGES}
-				(fromDate, toDate, description, isActive, createdAt, updatedAt)
-				VALUES (?, ?, 'Cut to Thursday', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-			`,
-				[fromDate, toDate]
-			);
-		},
-		down: (db: Database) => {
-			// Drop the table
-			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.SEMANAL_DATE_RANGES}`);
-		},
-	},
-	{
-		version: "011",
-		description: "Create business unit rules table with default patterns",
-		dependencies: ["010"],
-		up: (db: Database) => {
-			// Create business_unit_rules table
-			db.run(`
-				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.BUSINESS_UNIT_RULES} (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					business_unit TEXT NOT NULL,
-					pattern TEXT NOT NULL,
-					pattern_type TEXT CHECK(pattern_type IN ('contains', 'regex', 'exact')) DEFAULT 'contains',
-					priority INTEGER DEFAULT 0,
-					active BOOLEAN DEFAULT 1,
-					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-					updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-				)
-			`);
-
-			// Create indexes for better performance
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_business_unit ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(business_unit)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_active ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(active)`
-			);
-			db.run(
-				`CREATE INDEX IF NOT EXISTS idx_business_unit_rules_priority ON ${TABLE_NAMES.BUSINESS_UNIT_RULES}(priority)`
-			);
-
-			// Insert default rules from current hardcoded logic
-			const defaultRules = [
-				{ businessUnit: 'FFVV', pattern: 'APP - Gestiona tu Negocio (SE)', priority: 1 },
-				{ businessUnit: 'FFVV', pattern: 'APP - Crecer es Ganar (FFVV)', priority: 2 },
-				{ businessUnit: 'FFVV', pattern: 'Portal FFVV', priority: 3 },
-				{ businessUnit: 'SB', pattern: 'Somos Belcorp 2.0', priority: 4 },
-				{ businessUnit: 'SB', pattern: 'APP - SOMOS BELCORP', priority: 5 },
-				{ businessUnit: 'UB-3', pattern: 'Unete 3.0', priority: 6 },
-				{ businessUnit: 'UN-2', pattern: 'Unete 2.0', priority: 7 },
-				{ businessUnit: 'CD', pattern: 'Catálogo Digital', priority: 8 },
-				{ businessUnit: 'PROL', pattern: 'PROL', priority: 9 }
-			];
-
-			// Insert default rules using prepared statement
-			const insertStmt = db.prepare(`
-				INSERT INTO ${TABLE_NAMES.BUSINESS_UNIT_RULES}
-				(business_unit, pattern, pattern_type, priority, active, created_at, updated_at)
-				VALUES (?, ?, 'contains', ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-			`);
-
-			try {
-				defaultRules.forEach((rule) => {
-					insertStmt.run([
-						rule.businessUnit,
-						rule.pattern,
-						rule.priority
-					]);
-				});
-				console.log(`✅ Inserted ${defaultRules.length} default business unit rules`);
-			} finally {
-				insertStmt.free();
-			}
-		},
-		down: (db: Database) => {
-			// Drop the table
-			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.BUSINESS_UNIT_RULES}`);
-		},
-	},
-	{
-		version: "012",
-		description: "Rename semanal to inDateRange and add to corrective_maintenance_records",
-		dependencies: ["011"],
-		up: (db: Database) => {
-			// Rename semanal column in monthly_report_records to inDateRange
-			db.run(`
-				ALTER TABLE ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}
-				RENAME COLUMN semanal TO inDateRange
-			`);
-			console.log(`✅ Renamed monthly_report_records.semanal to inDateRange`);
-
-			// Add inDateRange column to corrective_maintenance_records
-			db.run(`
-				ALTER TABLE ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}
-				ADD COLUMN inDateRange BOOLEAN DEFAULT 0
-			`);
-			console.log(`✅ Added inDateRange column to corrective_maintenance_records`);
-		},
-		down: (db: Database) => {
-			// Rename back inDateRange to semanal in monthly_report_records
-			db.run(`
-				ALTER TABLE ${TABLE_NAMES.MONTHLY_REPORT_RECORDS}
-				RENAME COLUMN inDateRange TO semanal
-			`);
-
-			// Note: SQLite doesn't support DROP COLUMN easily without recreating the table
-			// For down migration, we'll just leave the column (it's rare to roll back)
-			console.log(`⚠️ Note: inDateRange column in corrective_maintenance_records not dropped (SQLite limitation)`);
-		},
-	},
-	{
-		version: "013",
-		description: "Create monthly report status mapping rules table with default mappings",
-		dependencies: ["012"],
-		up: (db: Database) => {
-			// Create monthly_report_status_mapping_rules table
-			db.run(`
-				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES} (
-					id INTEGER PRIMARY KEY AUTOINCREMENT,
-					sourceStatus TEXT NOT NULL,
-					targetStatus TEXT NOT NULL,
-					patternType TEXT CHECK(patternType IN ('exact', 'contains', 'regex')) DEFAULT 'exact',
-					priority INTEGER NOT NULL,
-					active INTEGER NOT NULL DEFAULT 1,
-					createdAt TEXT NOT NULL,
-					updatedAt TEXT NOT NULL
-				)
-			`);
-
-			// Create index for faster queries
-			db.run(`
-				CREATE INDEX IF NOT EXISTS idx_monthly_report_status_mapping_priority
-				ON ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}(priority, active)
-			`);
-
-			// Insert default mappings matching current hardcoded behavior
-			// Based on mapRequestStatus() in monthly-report-record.ts (lines 244-277)
-			db.run(`
-				INSERT INTO ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}
-					(sourceStatus, targetStatus, patternType, priority, active, createdAt, updatedAt)
-				VALUES
-					('En Mantenimiento Correctivo', 'In L3 Backlog', 'exact', 10, 1, datetime('now'), datetime('now')),
-					('Dev in Progress', 'In L3 Backlog', 'exact', 11, 1, datetime('now'), datetime('now')),
-					('Nivel 2', 'On going in L2', 'exact', 20, 1, datetime('now'), datetime('now')),
-					('Nivel 3', 'On going in L3', 'exact', 30, 1, datetime('now'), datetime('now')),
-					('Validado', 'Closed', 'exact', 40, 1, datetime('now'), datetime('now')),
-					('Closed', 'Closed', 'exact', 41, 1, datetime('now'), datetime('now'))
-			`);
-
-			console.log('✅ Created monthly_report_status_mapping_rules table with 6 default mappings');
-		},
-		down: (db: Database) => {
-			// Drop the table
-			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}`);
-			console.log('✅ Dropped monthly_report_status_mapping_rules table');
 		},
 	},
 ];

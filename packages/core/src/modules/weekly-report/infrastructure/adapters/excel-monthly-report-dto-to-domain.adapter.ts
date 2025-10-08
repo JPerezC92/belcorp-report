@@ -1,10 +1,10 @@
 import { MonthlyReportRecord } from "../../domain/monthly-report-record.js";
 import type { ExcelMonthlyReportWithLinks } from "../dtos/excel-monthly-report.dto.js";
-import type { SemanalDateRange } from "../../domain/semanal-date-range.js";
+import type { DateRangeConfig } from "../../domain/date-range-config.js";
 
 export function excelMonthlyReportDtoToDomain(
 	dto: ExcelMonthlyReportWithLinks,
-	semanalDateRange?: SemanalDateRange | null,
+	dateRangeConfig?: DateRangeConfig | null,
 	requestStatusReporte?: string
 ): MonthlyReportRecord {
 	// Clean up values - handle "No asignado" and empty strings
@@ -57,12 +57,12 @@ export function excelMonthlyReportDtoToDomain(
 
 	// Add optional parameters only if they exist to avoid undefined assignment
 	let createData: typeof data & {
-		semanalDateRange?: SemanalDateRange;
+		dateRangeConfig?: DateRangeConfig;
 		requestStatusReporte?: string;
 	} = data;
 
-	if (semanalDateRange) {
-		createData = { ...createData, semanalDateRange };
+	if (dateRangeConfig) {
+		createData = { ...createData, dateRangeConfig };
 	}
 
 	if (requestStatusReporte) {

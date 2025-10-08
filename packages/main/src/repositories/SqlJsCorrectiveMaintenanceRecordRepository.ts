@@ -475,4 +475,15 @@ export class SqlJsCorrectiveMaintenanceRecordRepository
 
 		return results.map((row) => row.requestStatus as string);
 	}
+
+	async getDistinctBusinessUnits(): Promise<string[]> {
+		const results = await query(`
+			SELECT DISTINCT businessUnit
+			FROM ${TABLE_NAMES.CORRECTIVE_MAINTENANCE_RECORDS}
+			WHERE businessUnit IS NOT NULL AND businessUnit != ''
+			ORDER BY businessUnit
+		`);
+
+		return results.map((row) => row.businessUnit as string);
+	}
 }

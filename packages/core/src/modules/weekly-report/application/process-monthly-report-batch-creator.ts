@@ -1,6 +1,7 @@
 import type { MonthlyReportExcelParser } from "../domain/monthly-report-parser.js";
 import type { MonthlyReportRepository } from "../domain/monthly-report-repository.js";
-import type { SemanalDateRangeRepository } from "../domain/semanal-date-range-repository.js";
+import type { DateRangeConfigRepository } from "../domain/date-range-config-repository.js";
+import type { DateRangeSettingsRepository } from "../domain/date-range-settings-repository.js";
 
 export interface ProcessMonthlyReportBatchResult {
 	success: boolean;
@@ -13,7 +14,8 @@ export class ProcessMonthlyReportBatchCreator {
 	constructor(
 		private readonly parser: MonthlyReportExcelParser,
 		private readonly repository: MonthlyReportRepository,
-		private readonly semanalDateRangeRepository: SemanalDateRangeRepository
+		private readonly dateRangeConfigRepository: DateRangeConfigRepository,
+		private readonly dateRangeSettingsRepository: DateRangeSettingsRepository
 	) {}
 
 	async execute(
@@ -23,9 +25,13 @@ export class ProcessMonthlyReportBatchCreator {
 		try {
 			console.log(`[ProcessMonthlyReportBatch] Processing file: ${fileName}`);
 
-			// Get the active semanal date range
-			const activeDateRange = await this.semanalDateRangeRepository.getActive();
-			console.log(`[ProcessMonthlyReportBatch] Using date range: ${activeDateRange?.getDisplayText() || 'default current week'}`);
+			// Check if global mode is enabled
+			const settings = await this.dateRangeSettingsRepository.getSettings();
+
+			// Use global scope if global mode enabled, otherwise use monthly scope
+			const scope = settings.globalModeEnabled ? 'global' : 'monthly';
+			const activeDateRange = await this.dateRangeConfigRepository.getByScope(scope);
+			console.log(`[ProcessMonthlyReportBatch] Using date range (scope: ${scope}): ${activeDateRange?.getDisplayText() || 'default current week'}`);
 
 			// Parse the Excel file with the date range
 			const parseResult = await this.parser.parseExcel(fileBuffer, fileName, activeDateRange);

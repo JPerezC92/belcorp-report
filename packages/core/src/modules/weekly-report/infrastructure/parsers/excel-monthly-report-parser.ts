@@ -4,7 +4,7 @@ import type {
 	MonthlyReportExcelSheet,
 } from "@core/modules/weekly-report/domain/monthly-report-parser.js";
 import type { MonthlyReportRecord } from "@core/modules/weekly-report/domain/monthly-report-record.js";
-import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
+import type { DateRangeConfig } from "@core/modules/weekly-report/domain/date-range-config.js";
 import { excelMonthlyReportDtoToDomain } from "@core/modules/weekly-report/infrastructure/adapters/excel-monthly-report-dto-to-domain.adapter.js";
 import {
 	excelMonthlyReportSchema,
@@ -59,7 +59,7 @@ export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 	async parseExcel(
 		fileBuffer: ArrayBuffer,
 		fileName: string,
-		semanalDateRange?: SemanalDateRange | null
+		dateRangeConfig?: DateRangeConfig | null
 	): Promise<MonthlyReportExcelParseResult> {
 		try {
 			const workbook = new ExcelJS.Workbook();
@@ -97,12 +97,14 @@ export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 						// Map request status if mapper is available
 						let mappedStatus: string | undefined;
 						if (this.statusMapper && rowData["Request Status"]) {
-							mappedStatus = await this.statusMapper(rowData["Request Status"] as string);
+							// Normalize spaces: replace multiple spaces with single space
+							const normalizedStatus = String(rowData["Request Status"]).replace(/\s+/g, ' ').trim();
+							mappedStatus = await this.statusMapper(normalizedStatus);
 						}
 
 						const record = excelMonthlyReportDtoToDomain(
 							rowData as unknown as ExcelMonthlyReportWithLinks,
-							semanalDateRange,
+							dateRangeConfig,
 							mappedStatus
 						);
 						records.push(record);

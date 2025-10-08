@@ -1,6 +1,6 @@
 import React from "react";
 
-interface SemanalFilterProps {
+interface InDateRangeFilterProps {
 	filterMode: 'inRange' | 'outOfRange' | 'showAll';
 	onFilterModeChange: (mode: 'inRange' | 'outOfRange' | 'showAll') => void;
 	inRangeCount: number;
@@ -8,7 +8,7 @@ interface SemanalFilterProps {
 	totalCount: number;
 }
 
-const SemanalFilter: React.FC<SemanalFilterProps> = ({
+const InDateRangeFilter: React.FC<InDateRangeFilterProps> = ({
 	filterMode,
 	onFilterModeChange,
 	inRangeCount,
@@ -29,9 +29,9 @@ const SemanalFilter: React.FC<SemanalFilterProps> = ({
 		<div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
 			<div className="flex items-center justify-between">
 				<div>
-					<h4 className="text-sm font-medium text-gray-900 mb-2">Semanal Date Range Filter</h4>
+					<h4 className="text-sm font-medium text-gray-900 mb-2">InDateRange Filter</h4>
 					<p className="text-xs text-gray-600">
-						Filter records based on whether they fall within the configured semanal date range
+						Filter records based on whether they fall within the configured date range
 					</p>
 				</div>
 
@@ -72,8 +72,8 @@ const SemanalFilter: React.FC<SemanalFilterProps> = ({
 			<div className="mt-3 pt-3 border-t border-gray-200">
 				<div className="flex items-center justify-between text-xs text-gray-600">
 					<span>
-						{filterMode === 'inRange' && `Showing records within semanal range (${inRangeCount} of ${totalCount})`}
-						{filterMode === 'outOfRange' && `Showing records outside semanal range (${outOfRangeCount} of ${totalCount})`}
+						{filterMode === 'inRange' && `Showing records within date range (${inRangeCount} of ${totalCount})`}
+						{filterMode === 'outOfRange' && `Showing records outside date range (${outOfRangeCount} of ${totalCount})`}
 						{filterMode === 'showAll' && `Showing all records (${totalCount} total)`}
 					</span>
 					<span className="flex items-center gap-4">
@@ -92,4 +92,4 @@ const SemanalFilter: React.FC<SemanalFilterProps> = ({
 	);
 };
 
-export default SemanalFilter;
+export default InDateRangeFilter;

@@ -12,7 +12,9 @@ import { disallowMultipleAppInstance } from "./modules/SingleInstanceApp.js";
 import { createTagDataModule } from "./modules/TagDataModule.js";
 import { createBusinessUnitRulesModule } from "./modules/BusinessUnitRulesModule.js";
 import { createMonthlyReportStatusMappingModule } from "./modules/MonthlyReportStatusMappingModule.js";
+import { createModuleCategorizationDisplayRulesModule } from "./modules/ModuleCategorizationDisplayRulesModule.js";
 import { createTranslationModule } from "./modules/TranslationModule.js";
+import { createWarRoomModule } from "./modules/WarRoomModule.js";
 import { createWeeklyReportModule } from "./modules/WeeklyReportModule.js";
 import { createWindowManagerModule } from "./modules/WindowManager.js";
 
@@ -26,11 +28,13 @@ export async function initApp(initConfig: AppInitConfig) {
 		.init(databaseModule) // Initialize DatabaseModule with migrations
 		.init(businessUnitRulesModule) // Initialize business unit rules management first
 		.init(createMonthlyReportStatusMappingModule()) // Initialize monthly report status mapping
+		.init(createModuleCategorizationDisplayRulesModule()) // Initialize module/categorization display rules
 		.init(createTranslationModule()) // Initialize translation module
 		.init(createTagDataModule()) // Initialize tag data IPC handlers
 		.init(createForTaggingDataExcelModule()) // Initialize Excel processing IPC handlers
 		.init(createWeeklyReportModule()) // Initialize weekly report IPC handlers
 		.init(createMonthlyReportModule()) // Initialize monthly report IPC handlers
+		.init(createWarRoomModule()) // Initialize war room IPC handlers
 		.init(createWindowManagerModule({ initConfig, openDevTools: true })) // Enable dev tools temporarily for debugging
 		.init(disallowMultipleAppInstance())
 		.init(terminateAppOnLastWindowClose())

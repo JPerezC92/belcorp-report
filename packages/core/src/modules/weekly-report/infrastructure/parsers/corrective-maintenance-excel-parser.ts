@@ -4,7 +4,7 @@ import type {
 	CorrectiveMaintenanceExcelSheet,
 } from "@core/modules/weekly-report/domain/corrective-maintenance-excel-parser.js";
 import type { CorrectiveMaintenanceRecord } from "@core/modules/weekly-report/domain/corrective-maintenance-record.js";
-import type { SemanalDateRange } from "@core/modules/weekly-report/domain/semanal-date-range.js";
+import type { DateRangeConfig } from "@core/modules/weekly-report/domain/date-range-config.js";
 import { correctiveMaintenanceDtoToDomain, type BusinessUnitDetector } from "@core/modules/weekly-report/infrastructure/adapters/correctiveMaintenanceDtoToDomain.adapter.js";
 import { correctiveMaintenanceExcelSchema } from "@core/modules/weekly-report/infrastructure/dtos/corrective-maintenance-excel.dto.js";
 import {
@@ -73,7 +73,7 @@ export class CorrectiveMaintenanceExcelParserImpl
 	async parseExcel(
 		fileBuffer: ArrayBuffer,
 		fileName: string,
-		semanalDateRange?: SemanalDateRange | null
+		dateRangeConfig?: DateRangeConfig | null
 	): Promise<CorrectiveMaintenanceExcelParseResult> {
 		try {
 			const workbook = new ExcelJS.Workbook();
@@ -91,7 +91,7 @@ export class CorrectiveMaintenanceExcelParserImpl
 
 			const headers = this.extractHeaders(worksheet);
 			const warnings: string[] = [];
-			const rows = await this.extractRows(worksheet, headers, warnings, semanalDateRange);
+			const rows = await this.extractRows(worksheet, headers, warnings, dateRangeConfig);
 
 			const sheet: CorrectiveMaintenanceExcelSheet = {
 				name: worksheet.name,
@@ -137,7 +137,7 @@ export class CorrectiveMaintenanceExcelParserImpl
 		worksheet: ExcelJS.Worksheet,
 		headers: string[],
 		warnings: string[],
-		semanalDateRange?: SemanalDateRange | null
+		dateRangeConfig?: DateRangeConfig | null
 	): Promise<CorrectiveMaintenanceRecord[]> {
 		const records: CorrectiveMaintenanceRecord[] = [];
 
@@ -181,7 +181,7 @@ export class CorrectiveMaintenanceExcelParserImpl
 				const record = await correctiveMaintenanceDtoToDomain(
 					validationResult.data,
 					this.businessUnitDetector,
-					semanalDateRange
+					dateRangeConfig
 				);
 				if (record) {
 					records.push(record);

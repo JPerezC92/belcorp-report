@@ -1,5 +1,5 @@
 import { promises as fs } from "fs";
-import { ExcelMonthlyReportParserImpl, SemanalDateRange } from "@app/core";
+import { ExcelMonthlyReportParserImpl, DateRangeConfig } from "@app/core";
 import path from "path";
 
 async function testMonthlyReportParser(): Promise<void> {
@@ -23,8 +23,8 @@ async function testMonthlyReportParser(): Promise<void> {
 
 		console.log("");
 
-		// TEST 1: Parse without semanalDateRange (fallback to isDateInRange)
-		console.log("TEST 1: Parse without semanalDateRange ⏳");
+		// TEST 1: Parse without dateRangeConfig (fallback to isDateInRange)
+		console.log("TEST 1: Parse without dateRangeConfig ⏳");
 		console.log("─".repeat(60));
 
 		const parser1 = new ExcelMonthlyReportParserImpl();
@@ -68,15 +68,15 @@ async function testMonthlyReportParser(): Promise<void> {
 
 		console.log("");
 
-		// TEST 2: Parse with semanalDateRange (Friday-Thursday)
-		console.log("TEST 2: Parse with semanalDateRange (Friday-Thursday) ⏳");
+		// TEST 2: Parse with dateRangeConfig (Friday-Thursday)
+		console.log("TEST 2: Parse with dateRangeConfig (Friday-Thursday) ⏳");
 		console.log("─".repeat(60));
 
-		// Create a mock semanalDateRange for the most recent Friday-Thursday period
-		const mockSemanalRange = SemanalDateRange.createDefaultRange();
-		console.log(`📅 Using date range: ${mockSemanalRange.fromDate} to ${mockSemanalRange.toDate}`);
-		console.log(`   Display: ${mockSemanalRange.getDisplayText()}`);
-		console.log(`   Duration: ${mockSemanalRange.getDurationInDays()} days`);
+		// Create a mock dateRangeConfig for the most recent Friday-Thursday period
+		const mockDateRangeConfig = DateRangeConfig.createDefaultRange();
+		console.log(`📅 Using date range: ${mockDateRangeConfig.fromDate} to ${mockDateRangeConfig.toDate}`);
+		console.log(`   Display: ${mockDateRangeConfig.getDisplayText()}`);
+		console.log(`   Duration: ${mockDateRangeConfig.getDurationInDays()} days`);
 
 		const parser2 = new ExcelMonthlyReportParserImpl();
 		const result2 = await parser2.parseExcel(
@@ -113,7 +113,7 @@ async function testMonthlyReportParser(): Promise<void> {
 
 		console.log("");
 
-		// Display sample records from TEST 2 (with semanalDateRange)
+		// Display sample records from TEST 2 (with dateRangeConfig)
 		if (result2.success && result2.records && result2.records.length > 0) {
 			console.log("🔍 Sample Records (first 5 from TEST 2):");
 			console.log("─".repeat(60));
