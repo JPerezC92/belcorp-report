@@ -1,3 +1,11 @@
+import {
+	isLinkColumn,
+	validateHeaders,
+} from "@core/modules/weekly-report/infrastructure/utils/excel-parsing.utils.js";
+import {
+	cellValueSchema,
+	cellWithLinkSchema,
+} from "@core/shared/schemas/excel-cell-validation.schema.js";
 import ExcelJS from "exceljs";
 import type {
 	ForTaggingData,
@@ -7,14 +15,6 @@ import type {
 } from "../../domain/for-tagging-data-excel-parser.js";
 import { forTaggingDataDtoToDomain } from "../adapters/forTaggingDataDtoToDomain.adapter.js";
 import { forTaggingDataExcelSchema } from "../dtos/for-tagging-data-excel.dto.js";
-import {
-	cellValueSchema,
-	cellWithLinkSchema,
-} from "@core/shared/schemas/excel-cell-validation.schema.js";
-import {
-	isLinkColumn,
-	validateHeaders,
-} from "@core/modules/weekly-report/infrastructure/utils/excel-parsing.utils.js";
 
 export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 	private readonly targetSheetName = "ManageEngine Report Framework";
@@ -84,8 +84,8 @@ export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 			if (rows.length === 0) {
 				throw new Error(
 					`No data rows found in the Excel file. ` +
-					`This might be an empty file or a different report type. ` +
-					`Expected "For Tagging Data" format with categorized request data.`
+						`This might be an empty file or a different report type. ` +
+						`Expected "For Tagging Data" format with categorized request data.`
 				);
 			}
 
@@ -120,9 +120,13 @@ export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 		const emptyHeaders = headers.filter((h) => !h || h.trim() === "");
 		if (emptyHeaders.length > 0) {
 			throw new Error(
-				`Invalid file format: Expected 7 columns with headers [${this.headerOrder.join(", ")}]. ` +
-				`Found ${headers.length - emptyHeaders.length} non-empty headers. ` +
-				`This might be a different report type (e.g., Parent-Child Relationships).`
+				`Invalid file format: Expected 7 columns with headers [${this.headerOrder.join(
+					", "
+				)}]. ` +
+					`Found ${
+						headers.length - emptyHeaders.length
+					} non-empty headers. ` +
+					`This might be a different report type (e.g., Parent-Child Relationships).`
 			);
 		}
 
@@ -158,6 +162,7 @@ export class ForTaggingDataExcelParser implements IForTaggingDataExcelParser {
 				"codificación",
 				"usuario",
 				"Informativa",
+				"Cambio",
 			];
 			const isCategoryRow =
 				categoryKeywords.some((keyword) =>

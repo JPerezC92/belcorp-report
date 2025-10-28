@@ -19,12 +19,20 @@ import ExcelJS from "exceljs";
 export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 	private readonly targetSheetName = "ManageEngine Report Framework";
 	private statusMapper?: (status: string) => Promise<string>;
+	private levelMapper?: (requestStatusReporte: string) => Promise<string>;
 
 	/**
 	 * Set the status mapper function to use for mapping request statuses
 	 */
 	setStatusMapper(mapper: (status: string) => Promise<string>): void {
 		this.statusMapper = mapper;
+	}
+
+	/**
+	 * Set the level mapper function to use for mapping computed_level
+	 */
+	setLevelMapper(mapper: (requestStatusReporte: string) => Promise<string>): void {
+		this.levelMapper = mapper;
 	}
 
 	// Expected Spanish headers in order (columns B through Z, 25 total)
@@ -102,10 +110,17 @@ export class ExcelMonthlyReportParserImpl implements MonthlyReportExcelParser {
 							mappedStatus = await this.statusMapper(normalizedStatus);
 						}
 
+						// Map computed_level if mapper is available and mappedStatus exists
+						let computedLevel: string | undefined;
+						if (this.levelMapper && mappedStatus) {
+							computedLevel = await this.levelMapper(mappedStatus);
+						}
+
 						const record = excelMonthlyReportDtoToDomain(
 							rowData as unknown as ExcelMonthlyReportWithLinks,
 							dateRangeConfig,
-							mappedStatus
+							mappedStatus,
+							computedLevel
 						);
 						records.push(record);
 					}

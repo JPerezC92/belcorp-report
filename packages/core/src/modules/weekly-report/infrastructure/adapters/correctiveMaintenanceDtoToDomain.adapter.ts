@@ -1,9 +1,11 @@
 import { CorrectiveMaintenanceRecord } from "@core/modules/weekly-report/domain/corrective-maintenance-record.js";
-import type { CorrectiveMaintenanceExcelDto } from "@core/modules/weekly-report/infrastructure/dtos/corrective-maintenance-excel.dto.js";
 import type { DateRangeConfig } from "@core/modules/weekly-report/domain/date-range-config.js";
+import type { CorrectiveMaintenanceExcelDto } from "@core/modules/weekly-report/infrastructure/dtos/corrective-maintenance-excel.dto.js";
 
 // Type for business unit detection function
-export type BusinessUnitDetector = (applicationText: string) => Promise<string> | string;
+export type BusinessUnitDetector = (
+	applicationText: string
+) => Promise<string> | string;
 
 export async function correctiveMaintenanceDtoToDomain(
 	dto: CorrectiveMaintenanceExcelDto,
@@ -65,7 +67,7 @@ export async function correctiveMaintenanceDtoToDomain(
 	}
 
 	// Skip records with unknown business unit
-	if (businessUnit === 'UNKNOWN') {
+	if (businessUnit === "UNKNOWN") {
 		console.warn(
 			`[CorrectiveMaintenanceAdapter] Unknown business unit for applications: "${applications}". Skipping record ${requestId}.`
 		);
@@ -78,7 +80,7 @@ export async function correctiveMaintenanceDtoToDomain(
 	// Map Spanish status values to English
 	let mappedRequestStatus = requestStatus;
 	switch (requestStatus) {
-		case "En Pruebas":
+		case "En Pruebas	":
 			mappedRequestStatus = "In Testing";
 			break;
 		case "En Mantenimiento Correctivo":

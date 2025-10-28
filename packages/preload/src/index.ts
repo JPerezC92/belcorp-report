@@ -425,6 +425,23 @@ async function reorderModuleCategorizationDisplayRules(ruleOrders: Array<{ id: n
 	return ipcRenderer.invoke("module-categorization-display-rules:reorder", ruleOrders);
 }
 
+// SB Operational Stability functions
+async function loadSBOperationalStabilityData(buffer: ArrayBuffer, filename: string) {
+	return ipcRenderer.invoke("loadSBOperationalStabilityData", buffer, filename);
+}
+
+async function getSBOperationalReleases(options?: {
+	startDate?: string;
+	endDate?: string;
+	application?: string;
+}) {
+	return ipcRenderer.invoke("getSBOperationalReleases", options);
+}
+
+async function dropSBOperationalStabilityData() {
+	return ipcRenderer.invoke("dropSBOperationalStabilityData");
+}
+
 // War Room functions
 async function loadWarRoomData(buffer: ArrayBuffer, filename: string) {
 	return ipcRenderer.invoke("loadWarRoomData", buffer, filename);
@@ -440,6 +457,23 @@ async function getWarRoomApplications() {
 
 async function dropWarRoomData() {
 	return ipcRenderer.invoke("dropWarRoomData");
+}
+
+// Level Mapping functions
+async function getLevelMappings() {
+	return ipcRenderer.invoke("getLevelMappings");
+}
+
+async function createLevelMapping(requestStatusReporte: string, level: string) {
+	return ipcRenderer.invoke("createLevelMapping", requestStatusReporte, level);
+}
+
+async function updateLevelMapping(requestStatusReporte: string, level: string) {
+	return ipcRenderer.invoke("updateLevelMapping", requestStatusReporte, level);
+}
+
+async function deleteLevelMapping(requestStatusReporte: string) {
+	return ipcRenderer.invoke("deleteLevelMapping", requestStatusReporte);
 }
 
 // Export service methods directly
@@ -513,10 +547,17 @@ export {
 	deleteModuleCategorizationDisplayRule,
 	testModuleCategorizationDisplayPattern,
 	reorderModuleCategorizationDisplayRules,
+	loadSBOperationalStabilityData,
+	getSBOperationalReleases,
+	dropSBOperationalStabilityData,
 	loadWarRoomData,
 	getWarRoomRecords,
 	getWarRoomApplications,
 	dropWarRoomData,
+	getLevelMappings,
+	createLevelMapping,
+	updateLevelMapping,
+	deleteLevelMapping,
 	openExternal,
 	copyTextToClipboard,
 	copyHtmlToClipboard,

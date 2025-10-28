@@ -68,12 +68,14 @@ import { z } from "zod";
  */
 export const cellValueSchema = z.union([
 	z.string(),
+	z.number().transform(n => String(n)),
 	z.null().transform(() => ""),
 	z.undefined().transform(() => ""),
-	// Handle hyperlink objects with nested rich text
+	// Handle hyperlink objects with nested rich text, numbers, or strings
 	z.object({
 		text: z.union([
 			z.string(),
+			z.number(),
 			z.object({
 				richText: z.array(z.object({
 					text: z.string().optional()
@@ -82,9 +84,11 @@ export const cellValueSchema = z.union([
 		]).optional(),
 		hyperlink: z.string(),
 	}).transform(obj => {
-		if (obj.text) {
+		if (obj.text !== undefined && obj.text !== null) {
 			if (typeof obj.text === "string") {
 				return obj.text;
+			} else if (typeof obj.text === "number") {
+				return String(obj.text);
 			} else if (obj.text.richText) {
 				return obj.text.richText.map(rt => rt.text || "").join("");
 			}
@@ -105,12 +109,14 @@ export const cellValueSchema = z.union([
  */
 export const cellWithLinkSchema = z.union([
 	z.string().transform(value => ({ value, link: undefined })),
+	z.number().transform(n => ({ value: String(n), link: undefined })),
 	z.null().transform(() => ({ value: "", link: undefined })),
 	z.undefined().transform(() => ({ value: "", link: undefined })),
-	// Handle hyperlink objects with nested rich text
+	// Handle hyperlink objects with nested rich text, numbers, or strings
 	z.object({
 		text: z.union([
 			z.string(),
+			z.number(),
 			z.object({
 				richText: z.array(z.object({
 					text: z.string().optional()
@@ -120,9 +126,11 @@ export const cellWithLinkSchema = z.union([
 		hyperlink: z.string(),
 	}).transform(obj => {
 		let value = "";
-		if (obj.text) {
+		if (obj.text !== undefined && obj.text !== null) {
 			if (typeof obj.text === "string") {
 				value = obj.text;
+			} else if (typeof obj.text === "number") {
+				value = String(obj.text);
 			} else if (obj.text.richText) {
 				value = obj.text.richText.map(rt => rt.text || "").join("");
 			}

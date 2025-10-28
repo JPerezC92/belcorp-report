@@ -2208,9 +2208,10 @@ function WeeklyReportComponent() {
 													{visibleColumns.requestId && (
 														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 sticky left-[60px] bg-white z-10">
 															{record.requestIdLink ? (
-																<button
-																	type="button"
-																	onClick={() => {
+																<a
+																	href={record.requestIdLink}
+																	onClick={(e) => {
+																		e.preventDefault();
 																		if (
 																			record.requestIdLink
 																		) {
@@ -2223,12 +2224,12 @@ function WeeklyReportComponent() {
 																			);
 																		}
 																	}}
-																	className="text-blue-600 hover:text-blue-800 underline"
+																	className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
 																>
 																	{
 																		record.requestId
 																	}
-																</button>
+																</a>
 															) : (
 																record.requestId
 															)}
@@ -2286,9 +2287,10 @@ function WeeklyReportComponent() {
 													{visibleColumns.subject && (
 														<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
 															{record.subjectLink ? (
-																<button
-																	type="button"
-																	onClick={() => {
+																<a
+																	href={record.subjectLink}
+																	onClick={(e) => {
+																		e.preventDefault();
 																		if (
 																			record.subjectLink
 																		) {
@@ -2301,12 +2303,12 @@ function WeeklyReportComponent() {
 																			);
 																		}
 																	}}
-																	className="text-blue-600 hover:text-blue-800 underline"
+																	className="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
 																>
 																	{
 																		record.subject
 																	}
-																</button>
+																</a>
 															) : (
 																record.subject
 															)}

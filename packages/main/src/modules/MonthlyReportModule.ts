@@ -11,6 +11,7 @@ import type { ModuleContext } from "../ModuleContext.js";
 import { SqlJsMonthlyReportRecordRepository } from "../repositories/SqlJsMonthlyReportRecordRepository.js";
 import { SqlJsDateRangeConfigRepository } from "../repositories/SqlJsDateRangeConfigRepository.js";
 import { ServiceRegistry } from "../services/ServiceRegistry.js";
+import { monthlyReportToFrontendDto } from "../adapters/monthlyReportToFrontendDto.adapter.js";
 
 export class MonthlyReportModule implements AppModule {
 	async enable(_context: ModuleContext): Promise<void> {
@@ -33,6 +34,14 @@ export class MonthlyReportModule implements AppModule {
 					if (statusMappingService) {
 						parser.setStatusMapper(async (status: string) => {
 							return await statusMappingService.mapStatus(status);
+						});
+					}
+
+					// Get level mapping service from registry and inject into parser
+					const levelMappingService = ServiceRegistry.getLevelMappingService();
+					if (levelMappingService) {
+						parser.setLevelMapper(async (requestStatusReporte: string) => {
+							return await levelMappingService.mapLevel(requestStatusReporte);
 						});
 					}
 
@@ -84,56 +93,24 @@ export class MonthlyReportModule implements AppModule {
 		ipcMain.handle("getMonthlyReports", async () => {
 			try {
 				const repository = new SqlJsMonthlyReportRecordRepository();
-				const finder = new MonthlyReportFinder(repository);
 
-				const records = await finder.findAll();
+				const records = await repository.findAllWithDisplayNames();
 
-				// Convert to DTOs
-				const dtos = records.map((record) => ({
-					requestId: record.requestId,
-					applications: record.applications,
-					categorization: record.categorization,
-					requestIdLink: record.requestIdLink,
-					createdTime: record.createdTime,
-					requestStatus: record.requestStatus,
-					module: record.module,
-					subject: record.subject,
-					subjectLink: record.subjectLink,
-					priority: record.priority,
-					priorityReporte: record.priorityReporte,
-					eta: record.eta,
-					additionalInfo: record.additionalInfo,
-					resolvedTime: record.resolvedTime,
-					affectedCountries: record.affectedCountries,
-					recurrence: record.recurrence,
-					recurrenceComputed: record.recurrenceComputed,
-					technician: record.technician,
-					jira: record.jira,
-					problemId: record.problemId,
-					problemIdLink: record.problemIdLink,
-					linkedRequestId: record.linkedRequestId,
-					linkedRequestIdLink: record.linkedRequestIdLink,
-					requestOLAStatus: record.requestOLAStatus,
-					escalationGroup: record.escalationGroup,
-					affectedApplications: record.affectedApplications,
-					shouldResolveLevel1: record.shouldResolveLevel1,
-					campaign: record.campaign,
-					cuv1: record.cuv1,
-					release: record.release,
-					rca: record.rca,
-					businessUnit: record.businessUnit,
-					inDateRange: record.inDateRange,
-					rep: record.rep,
-					dia: record.dia,
-					week: record.week,
-					requestStatusReporte: record.requestStatusReporte,
-					informacionAdicionalReporte:
-						record.informacionAdicionalReporte,
-					enlaces: record.enlaces,
-					mensaje: record.mensaje,
-					observations: record.observations,
-					statusModifiedByUser: record.statusModifiedByUser,
-				}));
+				// Convert to DTOs using adapter
+				const dtos = records.map(monthlyReportToFrontendDto);
+
+				// Log data for debugging
+				console.log("[MonthlyReportModule] Retrieved records:", records.length);
+				console.log("[MonthlyReportModule] Sample data (first 5):");
+				console.table(
+					dtos.slice(0, 5).map((dto) => ({
+						requestId: dto.requestId,
+						createdTime: dto.createdTime,
+						requestOpeningDate: dto.requestOpeningDate,
+						computed_level: dto.computed_level,
+						requestStatusReporte: dto.requestStatusReporte,
+					}))
+				);
 
 				return {
 					success: true,
@@ -166,52 +143,8 @@ export class MonthlyReportModule implements AppModule {
 						businessUnit
 					);
 
-					// Convert to DTOs
-					const dtos = records.map((record) => ({
-						requestId: record.requestId,
-						applications: record.applications,
-						categorization: record.categorization,
-						requestIdLink: record.requestIdLink,
-						createdTime: record.createdTime,
-						requestStatus: record.requestStatus,
-						module: record.module,
-						subject: record.subject,
-						subjectLink: record.subjectLink,
-						priority: record.priority,
-						priorityReporte: record.priorityReporte,
-						eta: record.eta,
-						additionalInfo: record.additionalInfo,
-						resolvedTime: record.resolvedTime,
-						affectedCountries: record.affectedCountries,
-						recurrence: record.recurrence,
-						recurrenceComputed: record.recurrenceComputed,
-						technician: record.technician,
-						jira: record.jira,
-						problemId: record.problemId,
-						problemIdLink: record.problemIdLink,
-						linkedRequestId: record.linkedRequestId,
-						linkedRequestIdLink: record.linkedRequestIdLink,
-						requestOLAStatus: record.requestOLAStatus,
-						escalationGroup: record.escalationGroup,
-						affectedApplications: record.affectedApplications,
-						shouldResolveLevel1: record.shouldResolveLevel1,
-						campaign: record.campaign,
-						cuv1: record.cuv1,
-						release: record.release,
-						rca: record.rca,
-						businessUnit: record.businessUnit,
-						inDateRange: record.inDateRange,
-						rep: record.rep,
-						dia: record.dia,
-						week: record.week,
-						requestStatusReporte: record.requestStatusReporte,
-						informacionAdicionalReporte:
-							record.informacionAdicionalReporte,
-						enlaces: record.enlaces,
-						mensaje: record.mensaje,
-						observations: record.observations,
-						statusModifiedByUser: record.statusModifiedByUser,
-					}));
+					// Convert to DTOs using adapter
+					const dtos = records.map(monthlyReportToFrontendDto);
 
 					return {
 						success: true,
@@ -932,6 +865,121 @@ export class MonthlyReportModule implements AppModule {
 						error instanceof Error
 							? error.message
 							: "Unknown error",
+				};
+			}
+		});
+
+		// Get all level mappings
+		ipcMain.handle("getLevelMappings", async () => {
+			try {
+				const { getDatabase } = await import("@app/database");
+				const { SqlJsLevelMappingRepository } = await import("./monthly-report/SqlJsLevelMappingRepository.js");
+				const { levelMappingDomainToDto } = await import("@app/core");
+
+				const db = getDatabase();
+				const repository = new SqlJsLevelMappingRepository(db);
+				const mappings = await repository.findAll();
+
+				return {
+					success: true,
+					data: mappings.map(levelMappingDomainToDto),
+				};
+			} catch (error) {
+				console.error("[MonthlyReportModule] Get level mappings error:", error);
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Unknown error",
+				};
+			}
+		});
+
+		// Create level mapping
+		ipcMain.handle("createLevelMapping", async (_event, requestStatusReporte: string, level: string) => {
+			try {
+				const { getDatabase } = await import("@app/database");
+				const { SqlJsLevelMappingRepository } = await import("./monthly-report/SqlJsLevelMappingRepository.js");
+				const { LevelMapping } = await import("@app/core");
+
+				const db = getDatabase();
+				const repository = new SqlJsLevelMappingRepository(db);
+				const mapping = LevelMapping.create({ requestStatusReporte, level });
+
+				await repository.create(mapping);
+
+				// Reload service mappings
+				const levelMappingService = ServiceRegistry.getLevelMappingService();
+				if (levelMappingService) {
+					await levelMappingService.loadMappings();
+				}
+
+				return { success: true };
+			} catch (error) {
+				console.error("[MonthlyReportModule] Create level mapping error:", error);
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Unknown error",
+				};
+			}
+		});
+
+		// Update level mapping
+		ipcMain.handle("updateLevelMapping", async (_event, requestStatusReporte: string, level: string) => {
+			try {
+				const { getDatabase } = await import("@app/database");
+				const { SqlJsLevelMappingRepository } = await import("./monthly-report/SqlJsLevelMappingRepository.js");
+
+				const db = getDatabase();
+				const repository = new SqlJsLevelMappingRepository(db);
+				const existing = await repository.findByRequestStatus(requestStatusReporte);
+
+				if (!existing) {
+					return {
+						success: false,
+						error: "Mapping not found",
+					};
+				}
+
+				const updated = existing.update(level);
+				await repository.update(updated);
+
+				// Reload service mappings
+				const levelMappingService = ServiceRegistry.getLevelMappingService();
+				if (levelMappingService) {
+					await levelMappingService.loadMappings();
+				}
+
+				return { success: true };
+			} catch (error) {
+				console.error("[MonthlyReportModule] Update level mapping error:", error);
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Unknown error",
+				};
+			}
+		});
+
+		// Delete level mapping
+		ipcMain.handle("deleteLevelMapping", async (_event, requestStatusReporte: string) => {
+			try {
+				const { getDatabase } = await import("@app/database");
+				const { SqlJsLevelMappingRepository } = await import("./monthly-report/SqlJsLevelMappingRepository.js");
+
+				const db = getDatabase();
+				const repository = new SqlJsLevelMappingRepository(db);
+				await repository.delete(requestStatusReporte);
+
+				// Reload service mappings
+				const levelMappingService = ServiceRegistry.getLevelMappingService();
+				if (levelMappingService) {
+					await levelMappingService.loadMappings();
+				}
+
+				return { success: true };
+			} catch (error) {
+				console.error("[MonthlyReportModule] Delete level mapping error:", error);
+				return {
+					success: false,
+					error: error instanceof Error ? error.message : "Unknown error",
 				};
 			}
 		});
