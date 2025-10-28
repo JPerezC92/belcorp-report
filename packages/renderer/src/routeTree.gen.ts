@@ -10,8 +10,10 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WeeklyReportRouteImport } from './routes/weekly-report'
+import { Route as WeeklyAnalyticsRouteImport } from './routes/weekly-analytics'
 import { Route as WarRoomsRouteImport } from './routes/war-rooms'
 import { Route as TaggingV3RouteImport } from './routes/tagging-v3'
+import { Route as SbOperationalStabilityRouteImport } from './routes/sb-operational-stability'
 import { Route as MonthlyReportStatusSettingsRouteImport } from './routes/monthly-report-status-settings'
 import { Route as ModuleCategorizationDisplaySettingsRouteImport } from './routes/module-categorization-display-settings'
 import { Route as BusinessUnitSettingsRouteImport } from './routes/business-unit-settings'
@@ -22,6 +24,11 @@ const WeeklyReportRoute = WeeklyReportRouteImport.update({
   path: '/weekly-report',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WeeklyAnalyticsRoute = WeeklyAnalyticsRouteImport.update({
+  id: '/weekly-analytics',
+  path: '/weekly-analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WarRoomsRoute = WarRoomsRouteImport.update({
   id: '/war-rooms',
   path: '/war-rooms',
@@ -30,6 +37,11 @@ const WarRoomsRoute = WarRoomsRouteImport.update({
 const TaggingV3Route = TaggingV3RouteImport.update({
   id: '/tagging-v3',
   path: '/tagging-v3',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SbOperationalStabilityRoute = SbOperationalStabilityRouteImport.update({
+  id: '/sb-operational-stability',
+  path: '/sb-operational-stability',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MonthlyReportStatusSettingsRoute =
@@ -60,8 +72,10 @@ export interface FileRoutesByFullPath {
   '/business-unit-settings': typeof BusinessUnitSettingsRoute
   '/module-categorization-display-settings': typeof ModuleCategorizationDisplaySettingsRoute
   '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
+  '/sb-operational-stability': typeof SbOperationalStabilityRoute
   '/tagging-v3': typeof TaggingV3Route
   '/war-rooms': typeof WarRoomsRoute
+  '/weekly-analytics': typeof WeeklyAnalyticsRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesByTo {
@@ -69,8 +83,10 @@ export interface FileRoutesByTo {
   '/business-unit-settings': typeof BusinessUnitSettingsRoute
   '/module-categorization-display-settings': typeof ModuleCategorizationDisplaySettingsRoute
   '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
+  '/sb-operational-stability': typeof SbOperationalStabilityRoute
   '/tagging-v3': typeof TaggingV3Route
   '/war-rooms': typeof WarRoomsRoute
+  '/weekly-analytics': typeof WeeklyAnalyticsRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRoutesById {
@@ -79,8 +95,10 @@ export interface FileRoutesById {
   '/business-unit-settings': typeof BusinessUnitSettingsRoute
   '/module-categorization-display-settings': typeof ModuleCategorizationDisplaySettingsRoute
   '/monthly-report-status-settings': typeof MonthlyReportStatusSettingsRoute
+  '/sb-operational-stability': typeof SbOperationalStabilityRoute
   '/tagging-v3': typeof TaggingV3Route
   '/war-rooms': typeof WarRoomsRoute
+  '/weekly-analytics': typeof WeeklyAnalyticsRoute
   '/weekly-report': typeof WeeklyReportRoute
 }
 export interface FileRouteTypes {
@@ -90,8 +108,10 @@ export interface FileRouteTypes {
     | '/business-unit-settings'
     | '/module-categorization-display-settings'
     | '/monthly-report-status-settings'
+    | '/sb-operational-stability'
     | '/tagging-v3'
     | '/war-rooms'
+    | '/weekly-analytics'
     | '/weekly-report'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,8 +119,10 @@ export interface FileRouteTypes {
     | '/business-unit-settings'
     | '/module-categorization-display-settings'
     | '/monthly-report-status-settings'
+    | '/sb-operational-stability'
     | '/tagging-v3'
     | '/war-rooms'
+    | '/weekly-analytics'
     | '/weekly-report'
   id:
     | '__root__'
@@ -108,8 +130,10 @@ export interface FileRouteTypes {
     | '/business-unit-settings'
     | '/module-categorization-display-settings'
     | '/monthly-report-status-settings'
+    | '/sb-operational-stability'
     | '/tagging-v3'
     | '/war-rooms'
+    | '/weekly-analytics'
     | '/weekly-report'
   fileRoutesById: FileRoutesById
 }
@@ -118,8 +142,10 @@ export interface RootRouteChildren {
   BusinessUnitSettingsRoute: typeof BusinessUnitSettingsRoute
   ModuleCategorizationDisplaySettingsRoute: typeof ModuleCategorizationDisplaySettingsRoute
   MonthlyReportStatusSettingsRoute: typeof MonthlyReportStatusSettingsRoute
+  SbOperationalStabilityRoute: typeof SbOperationalStabilityRoute
   TaggingV3Route: typeof TaggingV3Route
   WarRoomsRoute: typeof WarRoomsRoute
+  WeeklyAnalyticsRoute: typeof WeeklyAnalyticsRoute
   WeeklyReportRoute: typeof WeeklyReportRoute
 }
 
@@ -130,6 +156,13 @@ declare module '@tanstack/react-router' {
       path: '/weekly-report'
       fullPath: '/weekly-report'
       preLoaderRoute: typeof WeeklyReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/weekly-analytics': {
+      id: '/weekly-analytics'
+      path: '/weekly-analytics'
+      fullPath: '/weekly-analytics'
+      preLoaderRoute: typeof WeeklyAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/war-rooms': {
@@ -144,6 +177,13 @@ declare module '@tanstack/react-router' {
       path: '/tagging-v3'
       fullPath: '/tagging-v3'
       preLoaderRoute: typeof TaggingV3RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sb-operational-stability': {
+      id: '/sb-operational-stability'
+      path: '/sb-operational-stability'
+      fullPath: '/sb-operational-stability'
+      preLoaderRoute: typeof SbOperationalStabilityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/monthly-report-status-settings': {
@@ -183,8 +223,10 @@ const rootRouteChildren: RootRouteChildren = {
   ModuleCategorizationDisplaySettingsRoute:
     ModuleCategorizationDisplaySettingsRoute,
   MonthlyReportStatusSettingsRoute: MonthlyReportStatusSettingsRoute,
+  SbOperationalStabilityRoute: SbOperationalStabilityRoute,
   TaggingV3Route: TaggingV3Route,
   WarRoomsRoute: WarRoomsRoute,
+  WeeklyAnalyticsRoute: WeeklyAnalyticsRoute,
   WeeklyReportRoute: WeeklyReportRoute,
 }
 export const routeTree = rootRouteImport

@@ -14,6 +14,8 @@ export const TABLE_NAMES = {
 	MONTHLY_REPORT_STATUS_MAPPING_RULES: "monthly_report_status_mapping_rules",
 	MODULE_CATEGORIZATION_DISPLAY_RULES: "module_categorization_display_rules",
 	WAR_ROOM_RECORDS: "war_room_records",
+	MONTHLY_REPORT_LEVEL_MAPPING: "monthly_report_level_mapping",
+	SB_OPERATIONAL_RELEASES: "sb_operational_releases",
 	MIGRATIONS: "_migrations",
 } as const;
 

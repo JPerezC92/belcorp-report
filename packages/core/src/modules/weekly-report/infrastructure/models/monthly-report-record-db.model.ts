@@ -48,6 +48,7 @@ export const monthlyReportRecordDbSchema = z.object({
 	mensaje: z.string(),
 	observations: z.string().nullable(),
 	statusModifiedByUser: z.number(), // SQLite stores boolean as 0/1
+	computed_level: z.string().nullable(),
 
 	// Display name mappings (for Weekly Evolution only)
 	moduleDisplayName: z.string().nullable().optional(),

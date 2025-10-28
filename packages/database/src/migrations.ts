@@ -234,6 +234,7 @@ export const migrations: Migration[] = [
 					mensaje TEXT,
 					observations TEXT,
 					statusModifiedByUser BOOLEAN DEFAULT 0,
+					computed_level TEXT,
 					createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
 					updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
 				)
@@ -405,9 +406,10 @@ export const migrations: Migration[] = [
 				INSERT INTO ${TABLE_NAMES.MONTHLY_REPORT_STATUS_MAPPING_RULES}
 					(sourceStatus, targetStatus, patternType, priority, active, createdAt, updatedAt)
 				VALUES
+					('Nivel 2', 'On going in L2', 'exact', 20, 1, datetime('now'), datetime('now')),
 					('En Mantenimiento Correctivo', 'In L3 Backlog', 'exact', 10, 1, datetime('now'), datetime('now')),
 					('Dev in Progress', 'In L3 Backlog', 'exact', 11, 1, datetime('now'), datetime('now')),
-					('Nivel 2', 'On going in L2', 'exact', 20, 1, datetime('now'), datetime('now')),
+					('En Pruebas', 'In L3 Backlog', 'exact', 12, 1, datetime('now'), datetime('now')),
 					('Nivel 3', 'On going in L3', 'exact', 30, 1, datetime('now'), datetime('now')),
 					('Validado', 'Closed', 'exact', 40, 1, datetime('now'), datetime('now')),
 					('Closed', 'Closed', 'exact', 41, 1, datetime('now'), datetime('now'))
@@ -920,6 +922,13 @@ export const migrations: Migration[] = [
 					patternType: "exact",
 					priority: 333,
 				},
+				{
+					ruleType: "module",
+					sourceValue: "SB2 Back order",
+					displayValue: "Back Order",
+					patternType: "exact",
+					priority: 333,
+				},
 
 				// Module rules - Unete
 				{
@@ -1075,6 +1084,27 @@ export const migrations: Migration[] = [
 				`CREATE INDEX IF NOT EXISTS idx_war_room_status ON ${TABLE_NAMES.WAR_ROOM_RECORDS}(status)`
 			);
 
+			// ===== TABLE 12: MONTHLY_REPORT_LEVEL_MAPPING =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.MONTHLY_REPORT_LEVEL_MAPPING} (
+					requestStatusReporte TEXT PRIMARY KEY,
+					level TEXT NOT NULL CHECK(level IN ('L2', 'L3', 'Unknown')),
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+
+			// Insert default level mappings
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.MONTHLY_REPORT_LEVEL_MAPPING}
+					(requestStatusReporte, level, createdAt, updatedAt)
+				VALUES
+					('Closed', 'L2', datetime('now'), datetime('now')),
+					('On going in L2', 'L2', datetime('now'), datetime('now')),
+					('In L3 Backlog', 'L3', datetime('now'), datetime('now')),
+					('On going in L3', 'L3', datetime('now'), datetime('now'))
+			`);
+
 			console.log(
 				"✅ Database initialized with all tables and default data"
 			);
@@ -1101,6 +1131,9 @@ export const migrations: Migration[] = [
 				`DROP TABLE IF EXISTS ${TABLE_NAMES.MODULE_CATEGORIZATION_DISPLAY_RULES}`
 			);
 			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.WAR_ROOM_RECORDS}`);
+			db.run(
+				`DROP TABLE IF EXISTS ${TABLE_NAMES.MONTHLY_REPORT_LEVEL_MAPPING}`
+			);
 		},
 	},
 	{
@@ -1201,6 +1234,138 @@ export const migrations: Migration[] = [
 		},
 		down: (db: Database) => {
 			db.run(`DELETE FROM ${TABLE_NAMES.TAG}`);
+		},
+	},
+	{
+		version: "004",
+		description: "Create SB Operational Releases table",
+		dependencies: ["001"],
+		up: (db: Database) => {
+			// ===== TABLE: SB_OPERATIONAL_RELEASES =====
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.SB_OPERATIONAL_RELEASES} (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					week INTEGER,
+					application TEXT NOT NULL,
+					date TEXT NOT NULL,
+					releaseVersion TEXT NOT NULL,
+					releaseLink TEXT,
+					tickets TEXT,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_sb_operational_releases_date ON ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}(date)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_sb_operational_releases_application ON ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}(application)`
+			);
+
+			console.log(
+				"✅ SB Operational Releases table created successfully"
+			);
+		},
+		down: (db: Database) => {
+			db.run(`DROP TABLE IF EXISTS ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}`);
+		},
+	},
+	{
+		version: "005",
+		description: "Add unique constraint to SB Operational Releases to prevent duplicates",
+		dependencies: ["004"],
+		up: (db: Database) => {
+			// SQLite doesn't support ALTER TABLE to add constraints
+			// We need to recreate the table with the unique constraint
+
+			// Step 1: Create new table with unique constraint
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}_new (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					week INTEGER,
+					application TEXT NOT NULL,
+					date TEXT NOT NULL,
+					releaseVersion TEXT NOT NULL,
+					releaseLink TEXT,
+					tickets TEXT,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					UNIQUE(application, date, releaseVersion)
+				)
+			`);
+
+			// Step 2: Copy data from old table, keeping only unique records
+			// Use GROUP BY to deduplicate on (application, date, releaseVersion)
+			// Keep the record with the earliest id (first inserted)
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}_new
+					(week, application, date, releaseVersion, releaseLink, tickets, createdAt, updatedAt)
+				SELECT
+					week, application, date, releaseVersion, releaseLink, tickets,
+					MIN(createdAt) as createdAt, MAX(updatedAt) as updatedAt
+				FROM ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}
+				GROUP BY application, date, releaseVersion
+			`);
+
+			// Step 3: Drop old table
+			db.run(`DROP TABLE ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}`);
+
+			// Step 4: Rename new table to original name
+			db.run(`
+				ALTER TABLE ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}_new
+				RENAME TO ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}
+			`);
+
+			// Step 5: Recreate indexes
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_sb_operational_releases_date ON ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}(date)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_sb_operational_releases_application ON ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}(application)`
+			);
+
+			console.log(
+				"✅ Added unique constraint to SB Operational Releases table and removed duplicates"
+			);
+		},
+		down: (db: Database) => {
+			// To rollback, recreate table without unique constraint
+			db.run(`
+				CREATE TABLE IF NOT EXISTS ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}_old (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					week INTEGER,
+					application TEXT NOT NULL,
+					date TEXT NOT NULL,
+					releaseVersion TEXT NOT NULL,
+					releaseLink TEXT,
+					tickets TEXT,
+					createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+					updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+				)
+			`);
+
+			db.run(`
+				INSERT INTO ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}_old
+					(week, application, date, releaseVersion, releaseLink, tickets, createdAt, updatedAt)
+				SELECT week, application, date, releaseVersion, releaseLink, tickets, createdAt, updatedAt
+				FROM ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}
+			`);
+
+			db.run(`DROP TABLE ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}`);
+
+			db.run(`
+				ALTER TABLE ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}_old
+				RENAME TO ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}
+			`);
+
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_sb_operational_releases_date ON ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}(date)`
+			);
+			db.run(
+				`CREATE INDEX IF NOT EXISTS idx_sb_operational_releases_application ON ${TABLE_NAMES.SB_OPERATIONAL_RELEASES}(application)`
+			);
+
+			console.log("✅ Removed unique constraint from SB Operational Releases table");
 		},
 	},
 ];

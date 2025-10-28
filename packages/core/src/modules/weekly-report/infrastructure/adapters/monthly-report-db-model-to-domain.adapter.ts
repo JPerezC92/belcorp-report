@@ -51,6 +51,7 @@ export function monthlyReportDbModelToDomain(
 		mensaje: model.mensaje,
 		observations: model.observations,
 		statusModifiedByUser: model.statusModifiedByUser === 1,
+		computedLevel: model.computed_level,
 	};
 
 	// Only add display names if they're not undefined (exactOptionalPropertyTypes compliance)

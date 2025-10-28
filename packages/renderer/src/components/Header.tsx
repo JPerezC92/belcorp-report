@@ -17,6 +17,12 @@ export default function Header() {
 					<Link to="/war-rooms">War Rooms</Link>
 				</div>
 				<div className="px-2 font-bold">
+					<Link to="/sb-operational-stability">SB Operational Stability</Link>
+				</div>
+				<div className="px-2 font-bold">
+					<Link to="/weekly-analytics">Weekly Analytics</Link>
+				</div>
+				<div className="px-2 font-bold">
 					<Link to="/business-unit-settings">Business Unit Settings</Link>
 			</div>
 			<div className="px-2 font-bold">

@@ -143,16 +143,16 @@ const L3SummaryTable: React.FC<L3SummaryTableProps> = ({
 										{row.requestStatus}
 									</td>
 									<td className="border border-gray-300 px-4 py-2 text-center text-sm text-gray-900">
-										{row.Critical || "-"}
+										{row.Critical || ""}
 									</td>
 									<td className="border border-gray-300 px-4 py-2 text-center text-sm text-gray-900">
-										{row.High || "-"}
+										{row.High || ""}
 									</td>
 									<td className="border border-gray-300 px-4 py-2 text-center text-sm text-gray-900">
-										{row.Medium || "-"}
+										{row.Medium || ""}
 									</td>
 									<td className="border border-gray-300 px-4 py-2 text-center text-sm text-gray-900">
-										{row.Low || "-"}
+										{row.Low || ""}
 									</td>
 									<td
 										className={`border border-gray-300 px-4 py-2 text-center text-sm text-gray-900 font-semibold ${isTotal ? "bg-gray-300" : "bg-gray-100"}`}

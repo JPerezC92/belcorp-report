@@ -5,7 +5,8 @@ import type { DateRangeConfig } from "../../domain/date-range-config.js";
 export function excelMonthlyReportDtoToDomain(
 	dto: ExcelMonthlyReportWithLinks,
 	dateRangeConfig?: DateRangeConfig | null,
-	requestStatusReporte?: string
+	requestStatusReporte?: string,
+	computedLevel?: string
 ): MonthlyReportRecord {
 	// Clean up values - handle "No asignado" and empty strings
 	const cleanValue = (value: string | null | undefined): string | null => {
@@ -59,6 +60,7 @@ export function excelMonthlyReportDtoToDomain(
 	let createData: typeof data & {
 		dateRangeConfig?: DateRangeConfig;
 		requestStatusReporte?: string;
+		computedLevel?: string;
 	} = data;
 
 	if (dateRangeConfig) {
@@ -67,6 +69,10 @@ export function excelMonthlyReportDtoToDomain(
 
 	if (requestStatusReporte) {
 		createData = { ...createData, requestStatusReporte };
+	}
+
+	if (computedLevel) {
+		createData = { ...createData, computedLevel };
 	}
 
 	return MonthlyReportRecord.create(createData);

@@ -7,6 +7,7 @@ interface MonthlyReportRecord {
 	inDateRange: boolean;
 	requestStatusReporte: string;
 	categorization: string;
+	categorizationDisplayName: string | null;
 	recurrence: string;
 	recurrenceComputed: string | null;
 	[key: string]: any;
@@ -45,7 +46,7 @@ const IncidentOverviewSection: React.FC<IncidentOverviewSectionProps> = ({
 
 		const grouped = new Map<string, number>();
 		filtered.forEach((record) => {
-			const cat = record.categorization || "Unknown";
+			const cat = record.categorizationDisplayName || record.categorization || "Unknown";
 			grouped.set(cat, (grouped.get(cat) || 0) + 1);
 		});
 
@@ -67,7 +68,7 @@ const IncidentOverviewSection: React.FC<IncidentOverviewSectionProps> = ({
 
 		const grouped = new Map<string, number>();
 		filtered.forEach((record) => {
-			const cat = record.categorization || "Unknown";
+			const cat = record.categorizationDisplayName || record.categorization || "Unknown";
 			grouped.set(cat, (grouped.get(cat) || 0) + 1);
 		});
 
@@ -112,7 +113,7 @@ const IncidentOverviewSection: React.FC<IncidentOverviewSectionProps> = ({
 
 		const grouped = new Map<string, number>();
 		filtered.forEach((record) => {
-			const cat = record.categorization || "Unknown";
+			const cat = record.categorizationDisplayName || record.categorization || "Unknown";
 			grouped.set(cat, (grouped.get(cat) || 0) + 1);
 		});
 

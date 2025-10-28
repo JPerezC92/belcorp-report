@@ -33,11 +33,11 @@ export class SqlJsMonthlyReportRecordRepository
 					campaign, cuv1, release, rca,
 					businessUnit, inDateRange, rep, dia, week, priorityReporte,
 					requestStatusReporte, informacionAdicionalReporte,
-					enlaces, mensaje, observations, statusModifiedByUser,
+					enlaces, mensaje, observations, statusModifiedByUser, computed_level,
 					createdAt, updatedAt
 				) VALUES (
 					?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-					?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+					?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 					CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 				)
 			`);
@@ -86,6 +86,7 @@ export class SqlJsMonthlyReportRecordRepository
 					record.mensaje,
 					record.observations,
 					record.statusModifiedByUser ? 1 : 0,
+					record.computedLevel,
 				]);
 			}
 

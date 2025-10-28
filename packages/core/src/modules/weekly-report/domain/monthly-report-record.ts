@@ -47,6 +47,7 @@ export class MonthlyReportRecord {
 		public readonly mensaje: string,
 		public readonly observations: string | null,
 		public readonly statusModifiedByUser: boolean = false,
+		public readonly computedLevel: string | null = null,
 		// Display name mappings (for Weekly Evolution only)
 		public readonly moduleDisplayName?: string | null,
 		public readonly categorizationDisplayName?: string | null,
@@ -88,6 +89,7 @@ export class MonthlyReportRecord {
 		enlaces?: number;
 		dateRangeConfig?: DateRangeConfig; // Optional custom date range for Semanal calculation
 		requestStatusReporte?: string; // Optional pre-mapped status (from MonthlyReportStatusMappingService)
+		computedLevel?: string; // Optional pre-mapped level (from LevelMappingService)
 	}): MonthlyReportRecord {
 		// Derive business unit from applications
 		const businessUnit = this.deriveBusinessUnit(data.applications);
@@ -167,7 +169,8 @@ export class MonthlyReportRecord {
 			enlaces,
 			mensaje,
 			observations,
-			false
+			false,
+			data.computedLevel ?? null
 		);
 	}
 
@@ -219,6 +222,7 @@ export class MonthlyReportRecord {
 		mensaje: string;
 		observations: string | null;
 		statusModifiedByUser: boolean;
+		computedLevel?: string | null;
 		moduleDisplayName?: string | null;
 		categorizationDisplayName?: string | null;
 	}): MonthlyReportRecord {
@@ -265,6 +269,7 @@ export class MonthlyReportRecord {
 			data.mensaje,
 			data.observations,
 			data.statusModifiedByUser,
+			data.computedLevel ?? null,
 			data.moduleDisplayName,
 			data.categorizationDisplayName
 		);
@@ -516,6 +521,7 @@ export class MonthlyReportRecord {
 			this.mensaje,
 			this.observations,
 			true, // Mark as modified by user
+			this.computedLevel,
 			this.moduleDisplayName,
 			this.categorizationDisplayName,
 			this.createdAt,

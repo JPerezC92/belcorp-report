@@ -74,6 +74,13 @@ export * from "./modules/weekly-report/application/monthly-report-status-mapping
 export * from "./modules/weekly-report/infrastructure/adapters/monthly-report-status-mapping-rule-db-model-to-domain.adapter.js";
 export * from "./modules/weekly-report/infrastructure/models/monthly-report-status-mapping-rule-db.model.js";
 
+// Monthly Report Level Mapping Exports
+export * from "./modules/monthly-report/domain/level-mapping.entity.js";
+export * from "./modules/monthly-report/domain/level-mapping.repository.js";
+export * from "./modules/monthly-report/infrastructure/dtos/level-mapping.dto.js";
+export * from "./modules/monthly-report/infrastructure/adapters/levelMappingDtoToDomain.adapter.js";
+export * from "./modules/monthly-report/infrastructure/adapters/levelMappingDomainToDto.adapter.js";
+
 // War Rooms Module Exports
 export * from "./modules/war-rooms/domain/war-room-record.js";
 export * from "./modules/war-rooms/domain/war-room-record.repository.js";
@@ -84,6 +91,14 @@ export * from "./modules/war-rooms/infrastructure/dtos/war-room-excel.dto.js";
 export { warRoomRecordDbSchema, type WarRoomRecordDbModel } from "./modules/war-rooms/infrastructure/models/war-room-record-db.model.js";
 export { WarRoomExcelParserImpl } from "./modules/war-rooms/infrastructure/parsers/war-room-excel-parser.js";
 export * from "./modules/war-rooms/infrastructure/schemas/war-room-cell-validation.schema.js";
+
+// SB Operational Stability Module Exports
+export * from "./modules/sb-operational-stability/domain/release.entity.js";
+export * from "./modules/sb-operational-stability/domain/release.repository.js";
+export * from "./modules/sb-operational-stability/infrastructure/dtos/release.dto.js";
+export * from "./modules/sb-operational-stability/infrastructure/parsers/sb-operational-releases-parser.js";
+export * from "./modules/sb-operational-stability/infrastructure/adapters/releaseDtoToDomain.adapter.js";
+export * from "./modules/sb-operational-stability/infrastructure/adapters/releaseDbModelToDomain.adapter.js";
 
 // Shared Schemas - Critical Infrastructure
 export {

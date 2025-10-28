@@ -1,4 +1,5 @@
 import type { BusinessUnitService, MonthlyReportStatusMappingService } from "@app/core";
+import type { LevelMappingService } from "../modules/monthly-report/LevelMappingService.js";
 
 /**
  * Global service registry for sharing services between modules
@@ -6,6 +7,7 @@ import type { BusinessUnitService, MonthlyReportStatusMappingService } from "@ap
 class ServiceRegistryImpl {
 	private businessUnitService: BusinessUnitService | null = null;
 	private monthlyReportStatusMappingService: MonthlyReportStatusMappingService | null = null;
+	private levelMappingService: LevelMappingService | null = null;
 
 	registerBusinessUnitService(service: BusinessUnitService): void {
 		this.businessUnitService = service;
@@ -21,6 +23,14 @@ class ServiceRegistryImpl {
 
 	getMonthlyReportStatusMappingService(): MonthlyReportStatusMappingService | null {
 		return this.monthlyReportStatusMappingService;
+	}
+
+	registerLevelMappingService(service: LevelMappingService): void {
+		this.levelMappingService = service;
+	}
+
+	getLevelMappingService(): LevelMappingService | null {
+		return this.levelMappingService;
 	}
 }
 
